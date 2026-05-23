@@ -946,5 +946,107 @@ describe('transcript-parser', () => {
 
       expect(getActiveSlashCommand(transcript!)).toBeNull();
     });
+
+    it('should capture slash command from string-form <command-name> tag', async () => {
+      await writeTranscript([
+        {
+          type: 'user',
+          timestamp: '2024-01-01T00:00:00Z',
+          message: { content: '<command-name>/baz</command-name>  <command-args>x</command-args>' },
+        },
+      ]);
+
+      const { parseTranscript, getActiveSlashCommand } = await import('../utils/transcript-parser.js');
+      const transcript = await parseTranscript(TEST_FILE);
+
+      expect(getActiveSlashCommand(transcript!)?.name).toBe('/baz');
+    });
+
+    it('should preserve active command across system lifecycle string entries', async () => {
+      // Production Claude Code transcripts emit <local-command-stdout>,
+      // <local-command-caveat>, <command-message> etc. as string-form user
+      // entries immediately after <command-name>. These are system-injected
+      // and must not clear the active slash command.
+      await writeTranscript([
+        {
+          type: 'user',
+          timestamp: '2024-01-01T00:00:00Z',
+          message: { content: '<command-name>/effort</command-name>' },
+        },
+        {
+          type: 'user',
+          timestamp: '2024-01-01T00:00:01Z',
+          message: { content: '<local-command-stdout>Set effort level to max</local-command-stdout>' },
+        },
+        {
+          type: 'user',
+          timestamp: '2024-01-01T00:00:02Z',
+          message: { content: '<local-command-caveat>Caveat: ...</local-command-caveat>' },
+        },
+      ]);
+
+      const { parseTranscript, getActiveSlashCommand } = await import('../utils/transcript-parser.js');
+      const transcript = await parseTranscript(TEST_FILE);
+
+      expect(getActiveSlashCommand(transcript!)?.name).toBe('/effort');
+    });
+
+    it('should preserve active command when content is an empty string', async () => {
+      await writeTranscript([
+        {
+          type: 'user',
+          timestamp: '2024-01-01T00:00:00Z',
+          message: { content: [{ type: 'text', text: '<command-name>/foo</command-name>' }] },
+        },
+        {
+          type: 'user',
+          timestamp: '2024-01-01T00:00:01Z',
+          message: { content: '' },
+        },
+      ]);
+
+      const { parseTranscript, getActiveSlashCommand } = await import('../utils/transcript-parser.js');
+      const transcript = await parseTranscript(TEST_FILE);
+
+      expect(getActiveSlashCommand(transcript!)?.name).toBe('/foo');
+    });
+
+    it('should preserve active command when <command-name> tag is whitespace-only', async () => {
+      await writeTranscript([
+        {
+          type: 'user',
+          timestamp: '2024-01-01T00:00:00Z',
+          message: { content: [{ type: 'text', text: '<command-name>/foo</command-name>' }] },
+        },
+        {
+          type: 'user',
+          timestamp: '2024-01-01T00:00:01Z',
+          message: { content: '<command-name>   </command-name>' },
+        },
+      ]);
+
+      const { parseTranscript, getActiveSlashCommand } = await import('../utils/transcript-parser.js');
+      const transcript = await parseTranscript(TEST_FILE);
+
+      expect(getActiveSlashCommand(transcript!)?.name).toBe('/foo');
+    });
+
+    it('should not set activeSlashCommand when tag content lacks a leading slash', async () => {
+      // <command-name>just text</command-name> — no leading '/', so it's not a
+      // valid slash command. It is also not "plain user text" (the entry opens
+      // with a tag), so the active command should stay null.
+      await writeTranscript([
+        {
+          type: 'user',
+          timestamp: '2024-01-01T00:00:00Z',
+          message: { content: '<command-name>just text</command-name>' },
+        },
+      ]);
+
+      const { parseTranscript, getActiveSlashCommand } = await import('../utils/transcript-parser.js');
+      const transcript = await parseTranscript(TEST_FILE);
+
+      expect(getActiveSlashCommand(transcript!)).toBeNull();
+    });
   });
 });

@@ -131,25 +131,39 @@ function processEntries(
     // tool/task lifecycle. Splitting keeps each concern flat and avoids interleaving
     // two state machines.
     //
-    // `content` may be either a string (legacy/short-form) or an array of blocks;
-    // both are treated as plain user text for slash-command tracking. Skipping the
-    // string form would let `for...of` iterate characters and leak stale state.
-    if (entry.type === 'user') {
-      const content = entry.message?.content;
+    // String-form content needs care: Claude Code injects system entries like
+    // `<local-command-stdout>` and `<local-command-caveat>` right after a
+    // `<command-name>` slash command. Treating those as plain user text would
+    // clear the command within milliseconds of setting it. We classify a string
+    // payload as (a) command-name capture, (b) genuine plain text, or (c) system
+    // lifecycle tag (no state change).
+    if (entry.type === 'user' && entry.message?.content !== undefined) {
+      const content = entry.message.content;
       let matchedName: string | null = null;
       let hasText = false;
 
       if (typeof content === 'string') {
-        hasText = true;
         const m = content.match(SLASH_COMMAND_TAG_RE);
-        if (m) matchedName = m[1].trim();
+        if (m) {
+          const name = m[1].trim();
+          if (name.startsWith('/')) {
+            matchedName = name;
+            hasText = true;
+          }
+        } else {
+          const trimmed = content.trim();
+          if (trimmed.length > 0 && !trimmed.startsWith('<')) {
+            hasText = true;
+          }
+        }
       } else if (Array.isArray(content)) {
         for (const block of content) {
           if (block.type !== 'text' || typeof block.text !== 'string') continue;
           hasText = true;
           const m = block.text.match(SLASH_COMMAND_TAG_RE);
           if (m) {
-            matchedName = m[1].trim();
+            const name = m[1].trim();
+            if (name.startsWith('/')) matchedName = name;
             break;
           }
         }
