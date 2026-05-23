@@ -10,7 +10,7 @@
 
 import { open, stat } from 'fs/promises';
 import { basename } from 'path';
-import type { TranscriptEntry, ParsedTranscript, TodoProgressData, WidgetContext } from '../types.js';
+import type { TranscriptEntry, ParsedTranscript, TodoProgressData, WidgetContext, SlashCommandData } from '../types.js';
 import { truncate } from './formatters.js';
 
 /**
@@ -128,24 +128,25 @@ function processEntries(
 
     // Track slash command from user text blocks. tool_result-only user entries
     // are ignored so the command stays active across Claude's tool loop.
-    if (entry.type === 'user' && Array.isArray(entry.message?.content)) {
-      const textBlocks = entry.message.content.filter(
-        (b) => b.type === 'text' && typeof b.text === 'string'
-      );
-      if (textBlocks.length > 0) {
-        let matched: RegExpMatchArray | null = null;
-        for (const block of textBlocks) {
-          const m = block.text!.match(SLASH_COMMAND_TAG_RE);
-          if (m) { matched = m; break; }
+    if (entry.type === 'user' && entry.message?.content) {
+      let matchedName: string | null = null;
+      let hasText = false;
+      for (const block of entry.message.content) {
+        if (block.type !== 'text' || typeof block.text !== 'string') continue;
+        hasText = true;
+        const m = block.text.match(SLASH_COMMAND_TAG_RE);
+        if (m) {
+          matchedName = m[1];
+          break;
         }
-        if (matched) {
-          existing.activeSlashCommand = {
-            name: matched[1],
-            startTime: entry.timestamp ? new Date(entry.timestamp).getTime() : Date.now(),
-          };
-        } else {
-          existing.activeSlashCommand = null;
-        }
+      }
+      if (hasText) {
+        existing.activeSlashCommand = matchedName
+          ? {
+              name: matchedName,
+              startTime: entry.timestamp ? new Date(entry.timestamp).getTime() : Date.now(),
+            }
+          : null;
       }
     }
 
@@ -447,6 +448,6 @@ export function extractAgentStatus(
  */
 export function getActiveSlashCommand(
   transcript: ParsedTranscript
-): { name: string; startTime: number } | null {
+): SlashCommandData | null {
   return transcript.activeSlashCommand ?? null;
 }
