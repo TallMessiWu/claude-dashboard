@@ -90,6 +90,8 @@ claude-dashboard provides 39 widgets organized by category. Each widget can be i
 |--------|-------------|
 | `peakHours` | Peak hours indicator with countdown ([based on PeakClaude](https://github.com/pforret/PeakClaude))[6] |
 | `tagStatus` | Commits ahead of matched git tags (default pattern `v*`, configure via `tagPatterns`) |
+| `slashCommand` | Active slash command for the current turn (🎯), cleared by next plain-text message |
+| `agentMode` | Session agent identity: 👤 custom agent (via `/agent <name>`) or 🤖 subagent type |
 
 ## Notes
 

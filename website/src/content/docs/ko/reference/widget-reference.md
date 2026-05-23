@@ -303,3 +303,19 @@ sidebar:
 - **표시 내용**: 매칭된 각 git 태그로부터 HEAD까지의 커밋 수를 표시합니다. `"tagPatterns"` 설정으로 패턴 배열을 지정할 수 있으며 기본값은 `["v*"]`. 어떤 패턴도 매칭되지 않으면 위젯이 숨겨집니다.
 - **프리셋 문자**: `t`
 - **출력 예시**: `v1.2.3 +5`, `v1.2.3 +5, beta-3 +2`
+
+### slashCommand
+
+- **ID**: `slashCommand`
+- **데이터 소스**: 트랜스크립트 (사용자 텍스트의 `<command-name>` 태그)
+- **표시 내용**: 현재 턴을 시작한 슬래시 명령을 표시합니다 (예: `/superpowers:brainstorming`). 사용자가 일반 텍스트 메시지를 보내면 자동 해제됩니다. Claude의 도구 루프 동안에는 `tool_result`만 있는 user 엔트리는 무시되어 명령이 유지됩니다.
+- **프리셋 문자**: `/`
+- **출력 예시**: `🎯 /superpowers:brainstorming`, `🎯 /claude-dashboard:setup`
+
+### agentMode
+
+- **ID**: `agentMode`
+- **데이터 소스**: stdin (`agent.name`, `agent_type`)
+- **표시 내용**: 이 세션의 에이전트 정체성을 표시합니다 — `/agent <name>`으로 활성화된 커스텀 에이전트 (👤), 그리고/또는 이 세션이 서브에이전트로 디스패치된 경우 그 타입 (🤖). 이 세션이 *spawn한* 서브에이전트를 추적하는 `agentStatus`와 보는 방향이 반대입니다. 두 필드 모두 없으면 위젯이 숨겨집니다.
+- **프리셋 문자**: `g`
+- **출력 예시**: `👤 my-coder`, `🤖 code-explorer`, `👤 my-coder · 🤖 code-explorer`

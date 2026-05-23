@@ -10,7 +10,7 @@
 
 import { open, stat } from 'fs/promises';
 import { basename } from 'path';
-import type { TranscriptEntry, ParsedTranscript, TodoProgressData, WidgetContext } from '../types.js';
+import type { TranscriptEntry, ParsedTranscript, TodoProgressData, WidgetContext, SlashCommandData } from '../types.js';
 import { truncate } from './formatters.js';
 
 /**
@@ -38,8 +38,16 @@ function createParsedTranscript(): ParsedTranscript {
     nextTaskId: 1,
     pendingTaskCreates: new Map(),
     pendingTaskUpdates: new Map(),
+    activeSlashCommand: null,
   };
 }
+
+/**
+ * Matches `<command-name>/xxx</command-name>` tags injected by Claude Code
+ * when a user types a slash command. Captures the full name including the
+ * leading slash (e.g. '/superpowers:brainstorming').
+ */
+const SLASH_COMMAND_TAG_RE = /<command-name>([^<]+)<\/command-name>/;
 
 /**
  * Parse JSONL content into transcript entries, skipping malformed lines
@@ -77,7 +85,7 @@ function processEntries(
     }
 
     // Extract tool_use blocks
-    if (entry.type === 'assistant' && entry.message?.content) {
+    if (entry.type === 'assistant' && Array.isArray(entry.message?.content)) {
       for (const block of entry.message.content) {
         if (block.type === 'tool_use' && block.id && block.name) {
           existing.toolUses.set(block.id, {
@@ -118,8 +126,61 @@ function processEntries(
       }
     }
 
+    // User entries are visited in two separate blocks (text vs tool_result) instead
+    // of one merged loop: text drives slash-command tracking, tool_result drives
+    // tool/task lifecycle. Splitting keeps each concern flat and avoids interleaving
+    // two state machines.
+    //
+    // String-form content needs care: Claude Code injects system entries like
+    // `<local-command-stdout>` and `<local-command-caveat>` right after a
+    // `<command-name>` slash command. Treating those as plain user text would
+    // clear the command within milliseconds of setting it. We classify a string
+    // payload as (a) command-name capture, (b) genuine plain text, or (c) system
+    // lifecycle tag (no state change).
+    if (entry.type === 'user' && entry.message?.content !== undefined) {
+      const content = entry.message.content;
+      let matchedName: string | null = null;
+      let hasText = false;
+
+      if (typeof content === 'string') {
+        const m = content.match(SLASH_COMMAND_TAG_RE);
+        if (m) {
+          const name = m[1].trim();
+          if (name.startsWith('/')) {
+            matchedName = name;
+            hasText = true;
+          }
+        } else {
+          const trimmed = content.trim();
+          if (trimmed.length > 0 && !trimmed.startsWith('<')) {
+            hasText = true;
+          }
+        }
+      } else if (Array.isArray(content)) {
+        for (const block of content) {
+          if (block.type !== 'text' || typeof block.text !== 'string') continue;
+          hasText = true;
+          const m = block.text.match(SLASH_COMMAND_TAG_RE);
+          if (m) {
+            const name = m[1].trim();
+            if (name.startsWith('/')) matchedName = name;
+            break;
+          }
+        }
+      }
+
+      if (hasText) {
+        existing.activeSlashCommand = matchedName
+          ? {
+              name: matchedName,
+              startTime: entry.timestamp ? new Date(entry.timestamp).getTime() : Date.now(),
+            }
+          : null;
+      }
+    }
+
     // Extract tool_result blocks (they come as user messages with tool_result content)
-    if (entry.type === 'user' && entry.message?.content) {
+    if (entry.type === 'user' && Array.isArray(entry.message?.content)) {
       for (const block of entry.message.content) {
         if (block.type === 'tool_result' && block.tool_use_id) {
           existing.completedToolCount++;
@@ -408,4 +469,14 @@ export function extractAgentStatus(
   }
 
   return { active, completed: transcript.completedAgentCount };
+}
+
+/**
+ * Return the slash command active for the current turn, or null if the
+ * user's last input was plain text. O(1) — value tracked in processEntries.
+ */
+export function getActiveSlashCommand(
+  transcript: ParsedTranscript
+): SlashCommandData | null {
+  return transcript.activeSlashCommand;
 }

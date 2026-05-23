@@ -139,7 +139,9 @@ export type WidgetId =
   | 'vimMode'
   | 'apiDuration'
   | 'peakHours'
-  | 'tagStatus';
+  | 'tagStatus'
+  | 'slashCommand'
+  | 'agentMode';
 
 /**
  * Display mode for status line output
@@ -258,6 +260,8 @@ export const PRESET_CHAR_MAP: Record<string, WidgetId> = {
   a: 'apiDuration',
   p: 'peakHours',
   t: 'tagStatus',
+  '/': 'slashCommand',
+  g: 'agentMode',
 };
 
 /**
@@ -730,6 +734,31 @@ export interface LastPromptData {
 }
 
 /**
+ * Agent mode - identity of the current session (custom agent and/or subagent type).
+ * Distinct from `agentStatus` which tracks subagents spawned BY this session.
+ */
+export interface AgentModeData {
+  /** Custom agent activated via /agent <name>, from stdin.agent.name */
+  agentName?: string;
+  /** Subagent type when this session was dispatched as a subagent, from stdin.agent_type */
+  agentType?: string;
+}
+
+/**
+ * Slash command activity - name of the slash command that started the current turn.
+ * Cleared when the user sends a new plain-text message.
+ */
+export interface SlashCommandData {
+  /** Full command name including leading slash, e.g. '/superpowers:brainstorming' */
+  name: string;
+  /**
+   * Unix ms timestamp of when the command was issued. Captured for future
+   * elapsed-time rendering (e.g. "🎯 /skill (42s)"); not consumed by the current renderer.
+   */
+  startTime: number;
+}
+
+/**
  * Peak hours data - whether currently in Anthropic API peak hours window
  */
 export interface PeakHoursData {
@@ -775,7 +804,9 @@ export type WidgetData =
   | VimModeData
   | ApiDurationData
   | PeakHoursData
-  | TagStatusData;
+  | TagStatusData
+  | SlashCommandData
+  | AgentModeData;
 
 /**
  * Transcript entry from JSONL file
@@ -786,7 +817,12 @@ export interface TranscriptEntry {
   /** Session name set by /rename command */
   customTitle?: string;
   message?: {
-    content?: Array<{
+    /**
+     * Block array (assistant + most user entries) or bare string
+     * (legacy short-form user entries). Consumers must guard with
+     * Array.isArray / typeof === 'string' before iterating.
+     */
+    content?: string | Array<{
       type: 'tool_use' | 'tool_result' | 'text';
       id?: string;
       tool_use_id?: string; // For tool_result blocks
@@ -829,6 +865,8 @@ export interface ParsedTranscript {
   pendingTaskCreates: Map<string, { subject: string; status: string; seqId: string }>;
   /** Pending TaskUpdate tool_use IDs */
   pendingTaskUpdates: Map<string, { taskId: string; status?: string; subject?: string }>;
+  /** Slash command name + start time, cleared when a plain user message arrives */
+  activeSlashCommand: SlashCommandData | null;
 }
 
 /**
