@@ -89,6 +89,8 @@ Multi-provider support: z.ai/ZHIPU, Codex, Gemini auto-detected when installed.
 | | `todayCost` | Total spending across all sessions today |
 | **Status** | `peakHours` | Peak hours indicator with countdown ([based on PeakClaude](https://github.com/pforret/PeakClaude))⁶ |
 | | `tagStatus` | Commits ahead of matched git tags (default pattern `v*`, customize via `tagPatterns`)⁷ |
+| | `slashCommand` | Active slash command for the current turn (🎯), cleared by next plain-text message |
+| | `agentMode` | Session agent identity: 👤 custom agent (via `/agent <name>`) or 🤖 subagent type |
 | **Info** | `linesChanged` | Uncommitted lines added/removed, including untracked files (+N -N) |
 | | `outputStyle` | Current output style (hidden when "default") |
 | | `version` | Claude Code version display |

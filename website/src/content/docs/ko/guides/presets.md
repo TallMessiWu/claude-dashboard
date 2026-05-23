@@ -43,7 +43,8 @@ sidebar:
 | `m` | vimMode | `a` | apiDuration |
 | `p` | peakHours | `t` | tagStatus |
 | `b` | contextBar | `%` | contextPercentage |
-| `#` | contextUsage | | |
+| `#` | contextUsage | `/` | slashCommand |
+| `g` | agentMode | | |
 
 ## 예시
 

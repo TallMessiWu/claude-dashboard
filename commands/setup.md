@@ -77,6 +77,8 @@ Configure the claude-dashboard status line plugin with widget system support.
 | `apiDuration` | API time as % of total session time |
 | `peakHours` | Peak hours indicator with countdown (weekdays 5-11 AM PT) |
 | `tagStatus` | Commits ahead of matched git tags (uses `tagPatterns` config, default `["v*"]`) |
+| `slashCommand` | Active slash command for the current turn (🎯); cleared by next plain-text message |
+| `agentMode` | Session agent identity: 👤 custom agent (via `/agent <name>`) or 🤖 subagent type |
 
 ## Tasks
 
@@ -125,7 +127,7 @@ Single AskUserQuestion call with `multiSelect: true`, max 4 options. Ask: "Line 
 
 1. **Model & Context** — `model`, `context`, `contextBar`, `contextPercentage`, `contextUsage`
 2. **Cost & Limits** — `cost`, `rateLimit5h`, `rateLimit7d`, `rateLimit7dSonnet`, `budget`, `forecast`, `todayCost`
-3. **Project, Session & Activity** — `projectInfo`, `sessionId`, `sessionIdFull`, `sessionDuration`, `sessionName`, `configCounts`, `toolActivity`, `agentStatus`, `todoProgress`, `outputStyle`, `vimMode`, `linesChanged`, `version`, `lastPrompt`
+3. **Project, Session & Activity** — `projectInfo`, `sessionId`, `sessionIdFull`, `sessionDuration`, `sessionName`, `configCounts`, `toolActivity`, `agentStatus`, `agentMode`, `todoProgress`, `outputStyle`, `vimMode`, `linesChanged`, `version`, `lastPrompt`, `slashCommand`
 4. **Performance, Tokens & Other CLIs** — `burnRate`, `tokenSpeed`, `cacheHit`, `performance`, `tokenBreakdown`, `depletionTime`, `apiDuration`, `peakHours`, `tagStatus`, `codexUsage`, `geminiUsage`, `geminiUsageAll`, `zaiUsage`
 
 **Step B — Pick widgets from each selected category:**
@@ -188,7 +190,7 @@ Create `~/.claude/claude-dashboard.local.json`:
 }
 ```
 
-Preset characters: `M`=model, `C`=context, `b`=contextBar, `%`=contextPercentage, `#`=contextUsage, `$`=cost, `R`=rateLimit5h, `7`=rateLimit7d, `S`=7dSonnet, `P`=projectInfo, `I`=sessionId, `D`=sessionDuration, `T`=toolActivity, `A`=agentStatus, `O`=todoProgress, `B`=burnRate, `E`=depletionTime, `H`=cacheHit, `X`=codexUsage, `G`=geminiUsage, `Z`=zaiUsage, `K`=configCounts, `N`=tokenBreakdown, `F`=performance, `W`=forecast, `U`=budget, `L`=linesChanged, `Y`=outputStyle, `V`=version, `Q`=tokenSpeed, `J`=sessionName, `@`=todayCost, `?`=lastPrompt, `m`=vimMode, `a`=apiDuration, `p`=peakHours, `t`=tagStatus. Use `|` to separate lines.
+Preset characters: `M`=model, `C`=context, `b`=contextBar, `%`=contextPercentage, `#`=contextUsage, `$`=cost, `R`=rateLimit5h, `7`=rateLimit7d, `S`=7dSonnet, `P`=projectInfo, `I`=sessionId, `D`=sessionDuration, `T`=toolActivity, `A`=agentStatus, `g`=agentMode, `O`=todoProgress, `B`=burnRate, `E`=depletionTime, `H`=cacheHit, `X`=codexUsage, `G`=geminiUsage, `Z`=zaiUsage, `K`=configCounts, `N`=tokenBreakdown, `F`=performance, `W`=forecast, `U`=budget, `L`=linesChanged, `Y`=outputStyle, `V`=version, `Q`=tokenSpeed, `J`=sessionName, `@`=todayCost, `?`=lastPrompt, `/`=slashCommand, `m`=vimMode, `a`=apiDuration, `p`=peakHours, `t`=tagStatus. Use `|` to separate lines.
 
 **For custom mode:**
 ```json

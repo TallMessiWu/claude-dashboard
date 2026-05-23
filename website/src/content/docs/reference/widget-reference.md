@@ -547,3 +547,34 @@ Off-Peak (2d17h)
 v1.2.3 +5
 v1.2.3 +5, beta-3 +2
 ```
+
+### slashCommand
+
+| Property | Value |
+|----------|-------|
+| **Widget ID** | `slashCommand` |
+| **Data Source** | transcript (`<command-name>` tag in user text) |
+| **Description** | Displays the slash command that started the current turn (e.g. `/superpowers:brainstorming`). Cleared when the user sends a plain-text message. Survives Claude's tool loop — `tool_result`-only user entries do not clear the command. |
+| **Preset Char** | `/` |
+
+**Example output:**
+```
+🎯 /superpowers:brainstorming
+🎯 /claude-dashboard:setup
+```
+
+### agentMode
+
+| Property | Value |
+|----------|-------|
+| **Widget ID** | `agentMode` |
+| **Data Source** | stdin (`agent.name`, `agent_type`) |
+| **Description** | Shows this session's agent identity — a custom agent activated via `/agent <name>` (👤) and/or the subagent type when this session was dispatched as a subagent (🤖). Distinct from `agentStatus`, which tracks subagents spawned BY this session. Hidden when neither field is present. |
+| **Preset Char** | `g` |
+
+**Example output:**
+```
+👤 my-coder
+🤖 code-explorer
+👤 my-coder · 🤖 code-explorer
+```
