@@ -1784,15 +1784,24 @@ function processEntries(entries, existing) {
         }
       }
     }
-    if (entry.type === "user") {
-      const content = entry.message?.content;
+    if (entry.type === "user" && entry.message?.content !== void 0) {
+      const content = entry.message.content;
       let matchedName = null;
       let hasText = false;
       if (typeof content === "string") {
-        hasText = true;
         const m = content.match(SLASH_COMMAND_TAG_RE);
-        if (m)
-          matchedName = m[1].trim();
+        if (m) {
+          const name = m[1].trim();
+          if (name.startsWith("/")) {
+            matchedName = name;
+            hasText = true;
+          }
+        } else {
+          const trimmed = content.trim();
+          if (trimmed.length > 0 && !trimmed.startsWith("<")) {
+            hasText = true;
+          }
+        }
       } else if (Array.isArray(content)) {
         for (const block of content) {
           if (block.type !== "text" || typeof block.text !== "string")
@@ -1800,7 +1809,9 @@ function processEntries(entries, existing) {
           hasText = true;
           const m = block.text.match(SLASH_COMMAND_TAG_RE);
           if (m) {
-            matchedName = m[1].trim();
+            const name = m[1].trim();
+            if (name.startsWith("/"))
+              matchedName = name;
             break;
           }
         }
