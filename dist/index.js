@@ -1793,7 +1793,7 @@ function processEntries(entries, existing) {
         hasText = true;
         const m = block.text.match(SLASH_COMMAND_TAG_RE);
         if (m) {
-          matchedName = m[1];
+          matchedName = m[1].trim();
           break;
         }
       }
@@ -1987,7 +1987,7 @@ function extractAgentStatus(transcript) {
   return { active, completed: transcript.completedAgentCount };
 }
 function getActiveSlashCommand(transcript) {
-  return transcript.activeSlashCommand ?? null;
+  return transcript.activeSlashCommand;
 }
 
 // scripts/widgets/tool-activity.ts
