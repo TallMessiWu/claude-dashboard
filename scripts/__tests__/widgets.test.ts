@@ -2363,6 +2363,12 @@ describe('widgets', () => {
       expect(result).toContain('🎯');
       expect(result).toContain('/foo:bar');
     });
+
+    it('should return null when stdin has no transcript_path', async () => {
+      const ctx = createContext();
+      const data = await slashCommandWidget.getData(ctx);
+      expect(data).toBeNull();
+    });
   });
 
   describe('agentModeWidget', () => {
@@ -2402,6 +2408,12 @@ describe('widgets', () => {
       const ctx = createContext();
       const result = agentModeWidget.render({ agentName: 'solo' }, ctx);
       expect(result).toBe('👤 solo');
+    });
+
+    it('should return null when agent.name trims to empty string', async () => {
+      const ctx = createContext({ agent: { name: '   ' } });
+      const data = await agentModeWidget.getData(ctx);
+      expect(data).toBeNull();
     });
   });
 

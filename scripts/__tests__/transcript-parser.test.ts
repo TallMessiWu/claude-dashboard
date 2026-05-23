@@ -894,5 +894,35 @@ describe('transcript-parser', () => {
 
       expect(active?.name).toBe('/bar');
     });
+
+    it('should capture a namespace-less command like /foo', async () => {
+      await writeTranscript([
+        {
+          type: 'user',
+          timestamp: '2024-01-01T00:00:00Z',
+          message: { content: [{ type: 'text', text: '<command-name>/foo</command-name>' }] },
+        },
+      ]);
+
+      const { parseTranscript, getActiveSlashCommand } = await import('../utils/transcript-parser.js');
+      const transcript = await parseTranscript(TEST_FILE);
+
+      expect(getActiveSlashCommand(transcript!)?.name).toBe('/foo');
+    });
+
+    it('should trim surrounding whitespace inside the command-name tag', async () => {
+      await writeTranscript([
+        {
+          type: 'user',
+          timestamp: '2024-01-01T00:00:00Z',
+          message: { content: [{ type: 'text', text: '<command-name>  /foo:bar  </command-name>' }] },
+        },
+      ]);
+
+      const { parseTranscript, getActiveSlashCommand } = await import('../utils/transcript-parser.js');
+      const transcript = await parseTranscript(TEST_FILE);
+
+      expect(getActiveSlashCommand(transcript!)?.name).toBe('/foo:bar');
+    });
   });
 });
