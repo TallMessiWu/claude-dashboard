@@ -817,7 +817,12 @@ export interface TranscriptEntry {
   /** Session name set by /rename command */
   customTitle?: string;
   message?: {
-    content?: Array<{
+    /**
+     * Block array (assistant + most user entries) or bare string
+     * (legacy short-form user entries). Consumers must guard with
+     * Array.isArray / typeof === 'string' before iterating.
+     */
+    content?: string | Array<{
       type: 'tool_use' | 'tool_result' | 'text';
       id?: string;
       tool_use_id?: string; // For tool_result blocks

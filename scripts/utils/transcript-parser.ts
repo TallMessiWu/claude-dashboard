@@ -85,7 +85,7 @@ function processEntries(
     }
 
     // Extract tool_use blocks
-    if (entry.type === 'assistant' && entry.message?.content) {
+    if (entry.type === 'assistant' && Array.isArray(entry.message?.content)) {
       for (const block of entry.message.content) {
         if (block.type === 'tool_use' && block.id && block.name) {
           existing.toolUses.set(block.id, {
@@ -130,18 +130,31 @@ function processEntries(
     // of one merged loop: text drives slash-command tracking, tool_result drives
     // tool/task lifecycle. Splitting keeps each concern flat and avoids interleaving
     // two state machines.
-    if (entry.type === 'user' && entry.message?.content) {
+    //
+    // `content` may be either a string (legacy/short-form) or an array of blocks;
+    // both are treated as plain user text for slash-command tracking. Skipping the
+    // string form would let `for...of` iterate characters and leak stale state.
+    if (entry.type === 'user') {
+      const content = entry.message?.content;
       let matchedName: string | null = null;
       let hasText = false;
-      for (const block of entry.message.content) {
-        if (block.type !== 'text' || typeof block.text !== 'string') continue;
+
+      if (typeof content === 'string') {
         hasText = true;
-        const m = block.text.match(SLASH_COMMAND_TAG_RE);
-        if (m) {
-          matchedName = m[1].trim();
-          break;
+        const m = content.match(SLASH_COMMAND_TAG_RE);
+        if (m) matchedName = m[1].trim();
+      } else if (Array.isArray(content)) {
+        for (const block of content) {
+          if (block.type !== 'text' || typeof block.text !== 'string') continue;
+          hasText = true;
+          const m = block.text.match(SLASH_COMMAND_TAG_RE);
+          if (m) {
+            matchedName = m[1].trim();
+            break;
+          }
         }
       }
+
       if (hasText) {
         existing.activeSlashCommand = matchedName
           ? {
@@ -153,7 +166,7 @@ function processEntries(
     }
 
     // Extract tool_result blocks (they come as user messages with tool_result content)
-    if (entry.type === 'user' && entry.message?.content) {
+    if (entry.type === 'user' && Array.isArray(entry.message?.content)) {
       for (const block of entry.message.content) {
         if (block.type === 'tool_result' && block.tool_use_id) {
           existing.completedToolCount++;

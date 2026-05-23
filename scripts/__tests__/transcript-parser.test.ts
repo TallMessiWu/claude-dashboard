@@ -924,5 +924,27 @@ describe('transcript-parser', () => {
 
       expect(getActiveSlashCommand(transcript!)?.name).toBe('/foo:bar');
     });
+
+    it('should clear active command when a string-form plain user message arrives', async () => {
+      // String-form content (vs array-form) must not be iterated as characters.
+      // The active slash command should still be cleared.
+      await writeTranscript([
+        {
+          type: 'user',
+          timestamp: '2024-01-01T00:00:00Z',
+          message: { content: [{ type: 'text', text: '<command-name>/foo</command-name>' }] },
+        },
+        {
+          type: 'user',
+          timestamp: '2024-01-01T00:00:05Z',
+          message: { content: 'just a regular message' },
+        },
+      ]);
+
+      const { parseTranscript, getActiveSlashCommand } = await import('../utils/transcript-parser.js');
+      const transcript = await parseTranscript(TEST_FILE);
+
+      expect(getActiveSlashCommand(transcript!)).toBeNull();
+    });
   });
 });
