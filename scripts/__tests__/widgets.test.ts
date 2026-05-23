@@ -629,11 +629,10 @@ describe('widgets', () => {
       expect(data).toBeNull();
     });
 
-    it('should render placeholder when total is 0', () => {
-      const ctx = createContext();
-      const data = { completed: 0, total: 0 };
-      const result = todoProgressWidget.render(data, ctx);
-      expect(result).toContain('Todos: -');
+    it('should hide widget (return null) when transcript has no todos', async () => {
+      const ctx = createContext({ transcript_path: '/nonexistent/path.jsonl' });
+      const data = await todoProgressWidget.getData(ctx);
+      expect(data).toBeNull();
     });
 
     it('should render current task with progress', () => {
