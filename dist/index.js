@@ -456,9 +456,7 @@ function getSeparator() {
 }
 
 // scripts/utils/api-client.ts
-import { readdir, stat as stat2, unlink } from "fs/promises";
 import { execFile as execFile2 } from "child_process";
-import path2 from "path";
 
 // scripts/utils/credentials.ts
 import { execFile } from "child_process";
@@ -556,11 +554,20 @@ function debugLog(context, message, error) {
 }
 
 // scripts/utils/file-cache.ts
-import { readFile as readFile2, writeFile, mkdir } from "fs/promises";
+import { readFile as readFile2, writeFile, mkdir, readdir, stat as stat2, unlink } from "fs/promises";
 import os from "os";
 import path from "path";
 var FILE_CACHE_DIR = path.join(os.homedir(), ".cache", "claude-dashboard");
 var STALE_CACHE_TTL_SECONDS = 3600;
+var CACHE_CLEANUP_AGE_SECONDS = 3600;
+var CLEANUP_INTERVAL_MS = 36e5;
+var CLEANABLE_PREFIXES = [
+  "cache-",
+  "codex-usage-",
+  "gemini-usage-",
+  "zai-usage-"
+];
+var lastCleanupTime = 0;
 function fileCachePath(name) {
   return path.join(FILE_CACHE_DIR, name);
 }
@@ -591,6 +598,33 @@ async function saveFileCache(cacheFile, data, mode = 384) {
   } catch (err) {
     debugLog("file-cache", `save failed for ${cacheFile}`, err);
   }
+  cleanupExpiredCache().catch(() => {
+  });
+}
+async function cleanupExpiredCache(cacheDir = FILE_CACHE_DIR) {
+  const now = Date.now();
+  if (now - lastCleanupTime < CLEANUP_INTERVAL_MS)
+    return;
+  lastCleanupTime = now;
+  try {
+    const files = await readdir(cacheDir);
+    for (const file of files) {
+      if (!file.endsWith(".json"))
+        continue;
+      if (!CLEANABLE_PREFIXES.some((p) => file.startsWith(p)))
+        continue;
+      const filePath = path.join(cacheDir, file);
+      try {
+        const fileStat = await stat2(filePath);
+        const ageSeconds = (now - fileStat.mtimeMs) / 1e3;
+        if (ageSeconds > CACHE_CLEANUP_AGE_SECONDS) {
+          await unlink(filePath);
+        }
+      } catch {
+      }
+    }
+  } catch {
+  }
 }
 
 // scripts/utils/api-client.ts
@@ -598,12 +632,9 @@ var API_URL = "https://api.anthropic.com/api/oauth/usage";
 var API_TIMEOUT_MS = 5e3;
 var MAX_RETRY_AFTER_MS = 1e4;
 var STALE_FALLBACK_SECONDS = STALE_CACHE_TTL_SECONDS;
-var CACHE_CLEANUP_AGE_SECONDS = 3600;
-var CLEANUP_INTERVAL_MS = 36e5;
 var usageCacheMap = /* @__PURE__ */ new Map();
 var pendingRequests = /* @__PURE__ */ new Map();
 var lastTokenHash = null;
-var lastCleanupTime = 0;
 function getCacheFilePath(tokenHash) {
   return fileCachePath(`cache-${tokenHash}.json`);
 }
@@ -799,35 +830,6 @@ async function loadFileCache2(tokenHash, ttlSeconds) {
 }
 async function saveFileCache2(tokenHash, data) {
   await saveFileCache(getCacheFilePath(tokenHash), data);
-  cleanupExpiredCache().catch(() => {
-  });
-}
-async function cleanupExpiredCache() {
-  const now = Date.now();
-  if (now - lastCleanupTime < CLEANUP_INTERVAL_MS) {
-    return;
-  }
-  lastCleanupTime = now;
-  try {
-    const files = await readdir(FILE_CACHE_DIR);
-    for (const file of files) {
-      if (!file.endsWith(".json"))
-        continue;
-      const isCleanable = file.startsWith("cache-") || file.startsWith("codex-usage-") || file.startsWith("gemini-usage-") || file.startsWith("zai-usage-");
-      if (!isCleanable)
-        continue;
-      const filePath = path2.join(FILE_CACHE_DIR, file);
-      try {
-        const fileStat = await stat2(filePath);
-        const ageSeconds = (now - fileStat.mtimeMs) / 1e3;
-        if (ageSeconds > CACHE_CLEANUP_AGE_SECONDS) {
-          await unlink(filePath);
-        }
-      } catch {
-      }
-    }
-  } catch {
-  }
 }
 
 // locales/en.json
@@ -1477,9 +1479,9 @@ async function countFiles(dir, pattern) {
     return 0;
   }
 }
-async function fileExists(path5) {
+async function fileExists(path4) {
   try {
-    await stat4(path5);
+    await stat4(path4);
     return true;
   } catch {
     return false;
@@ -1507,9 +1509,9 @@ async function countMcps(projectDir) {
     { path: join3(homeDir, ".config", "claude-code", "mcp.json"), key: "mcpServers" }
   ];
   const counts = await Promise.all(
-    mcpPaths.map(async ({ path: path5, key }) => {
+    mcpPaths.map(async ({ path: path4, key }) => {
       try {
-        const content = await readFile4(path5, "utf-8");
+        const content = await readFile4(path4, "utf-8");
         const config = JSON.parse(content);
         return Object.keys(config[key] || {}).length;
       } catch {
@@ -2195,11 +2197,11 @@ var cacheHitWidget = {
 import { readFile as readFile6, stat as stat7, writeFile as writeFile2, mkdir as mkdir3 } from "fs/promises";
 import { execFile as execFile4 } from "child_process";
 import os2 from "os";
-import path3 from "path";
+import path2 from "path";
 var API_TIMEOUT_MS2 = 5e3;
-var CODEX_AUTH_PATH = path3.join(os2.homedir(), ".codex", "auth.json");
-var CODEX_CONFIG_PATH = path3.join(os2.homedir(), ".codex", "config.toml");
-var MODEL_CACHE_PATH = path3.join(FILE_CACHE_DIR, "codex-model-cache.json");
+var CODEX_AUTH_PATH = path2.join(os2.homedir(), ".codex", "auth.json");
+var CODEX_CONFIG_PATH = path2.join(os2.homedir(), ".codex", "config.toml");
+var MODEL_CACHE_PATH = path2.join(FILE_CACHE_DIR, "codex-model-cache.json");
 var codexCacheMap = /* @__PURE__ */ new Map();
 var pendingRequests3 = /* @__PURE__ */ new Map();
 var cachedAuth = null;
@@ -2503,7 +2505,7 @@ var codexUsageWidget = {
 import { readFile as readFile7, writeFile as writeFile3, stat as stat8 } from "fs/promises";
 import { execFile as execFile5 } from "child_process";
 import os3 from "os";
-import path4 from "path";
+import path3 from "path";
 var API_TIMEOUT_MS3 = 5e3;
 var GEMINI_DIR = ".gemini";
 var OAUTH_CREDS_FILE = "oauth_creds.json";
@@ -2524,7 +2526,7 @@ var keychainCache = null;
 var KEYCHAIN_CACHE_TTL_MS2 = 1e4;
 var cachedSettings = null;
 function getGeminiDir() {
-  return path4.join(os3.homedir(), GEMINI_DIR);
+  return path3.join(os3.homedir(), GEMINI_DIR);
 }
 async function isGeminiInstalled() {
   try {
@@ -2532,7 +2534,7 @@ async function isGeminiInstalled() {
     if (keychainToken) {
       return true;
     }
-    const oauthPath = path4.join(getGeminiDir(), OAUTH_CREDS_FILE);
+    const oauthPath = path3.join(getGeminiDir(), OAUTH_CREDS_FILE);
     await stat8(oauthPath);
     return true;
   } catch {
@@ -2583,7 +2585,7 @@ async function getTokenFromKeychain() {
 }
 async function getCredentialsFromFile2() {
   try {
-    const oauthPath = path4.join(getGeminiDir(), OAUTH_CREDS_FILE);
+    const oauthPath = path3.join(getGeminiDir(), OAUTH_CREDS_FILE);
     const fileStat = await stat8(oauthPath);
     if (cachedCredentials && cachedCredentials.mtime === fileStat.mtimeMs) {
       return cachedCredentials.data;
@@ -2676,7 +2678,7 @@ async function refreshToken(credentials) {
 }
 async function saveCredentialsToFile(credentials, rawResponse) {
   try {
-    const oauthPath = path4.join(getGeminiDir(), OAUTH_CREDS_FILE);
+    const oauthPath = path3.join(getGeminiDir(), OAUTH_CREDS_FILE);
     let existingData = {};
     try {
       const raw = await readFile7(oauthPath, "utf-8");
@@ -2717,7 +2719,7 @@ var projectIdCacheMap = /* @__PURE__ */ new Map();
 var PROJECT_ID_CACHE_TTL_MS = 5 * 60 * 1e3;
 async function getGeminiSettings() {
   try {
-    const settingsPath = path4.join(getGeminiDir(), SETTINGS_FILE);
+    const settingsPath = path3.join(getGeminiDir(), SETTINGS_FILE);
     const fileStat = await stat8(settingsPath);
     if (cachedSettings && cachedSettings.mtime === fileStat.mtimeMs) {
       return cachedSettings.data;

@@ -7,9 +7,7 @@
  * @handbook 7.1-common-api-pattern
  * @tested scripts/__tests__/api-client.test.ts
  */
-import { readdir, stat, unlink } from 'fs/promises';
 import { execFile } from 'child_process';
-import path from 'path';
 import { NEGATIVE_CACHE_SECONDS, type UsageLimits, type CacheEntry } from '../types.js';
 import { getCredentials } from './credentials.js';
 import { hashToken } from './hash.js';
@@ -19,7 +17,6 @@ import {
   loadFileCache as loadFileCacheGeneric,
   saveFileCache as saveFileCacheGeneric,
   fileCachePath,
-  FILE_CACHE_DIR,
   STALE_CACHE_TTL_SECONDS,
 } from './file-cache.js';
 
@@ -27,8 +24,6 @@ const API_URL = 'https://api.anthropic.com/api/oauth/usage';
 const API_TIMEOUT_MS = 5000;
 const MAX_RETRY_AFTER_MS = 10000;
 const STALE_FALLBACK_SECONDS = STALE_CACHE_TTL_SECONDS;
-const CACHE_CLEANUP_AGE_SECONDS = 3600;
-const CLEANUP_INTERVAL_MS = 3600000;
 
 /**
  * In-memory cache Map: tokenHash -> CacheEntry
@@ -45,11 +40,6 @@ const pendingRequests: Map<string, Promise<UsageLimits | null>> = new Map();
  * Last used token hash for fallback when credentials are unavailable
  */
 let lastTokenHash: string | null = null;
-
-/**
- * Last cleanup timestamp for time-based throttling
- */
-let lastCleanupTime = 0;
 
 /**
  * Get cache file path for a specific token hash.
@@ -324,12 +314,12 @@ async function loadFileCache(tokenHash: string, ttlSeconds: number): Promise<Usa
 }
 
 /**
- * Save cache to file for specific token
+ * Save cache to file for specific token.
+ * The shared utility handles cleanup of all known cache prefixes,
+ * so callers don't need to schedule it separately.
  */
 async function saveFileCache(tokenHash: string, data: UsageLimits): Promise<void> {
   await saveFileCacheGeneric(getCacheFilePath(tokenHash), data);
-  // Probabilistically clean up old cache files (fire-and-forget)
-  cleanupExpiredCache().catch(() => {});
 }
 
 /**
@@ -339,45 +329,3 @@ export function clearCache(): void {
   usageCacheMap.clear();
 }
 
-/**
- * Clean up expired cache files from disk
- * Runs at most once per hour (time-based throttling)
- */
-async function cleanupExpiredCache(): Promise<void> {
-  const now = Date.now();
-
-  // Skip if last cleanup was less than 1 hour ago
-  if (now - lastCleanupTime < CLEANUP_INTERVAL_MS) {
-    return;
-  }
-  lastCleanupTime = now;
-
-  try {
-    const files = await readdir(FILE_CACHE_DIR);
-
-    for (const file of files) {
-      if (!file.endsWith('.json')) continue;
-      const isCleanable =
-        file.startsWith('cache-') ||
-        file.startsWith('codex-usage-') ||
-        file.startsWith('gemini-usage-') ||
-        file.startsWith('zai-usage-');
-      if (!isCleanable) continue;
-
-      const filePath = path.join(FILE_CACHE_DIR, file);
-
-      try {
-        const fileStat = await stat(filePath);
-        const ageSeconds = (now - fileStat.mtimeMs) / 1000;
-
-        if (ageSeconds > CACHE_CLEANUP_AGE_SECONDS) {
-          await unlink(filePath);
-        }
-      } catch {
-        // Ignore individual file errors
-      }
-    }
-  } catch {
-    // Ignore cleanup errors (directory might not exist yet)
-  }
-}

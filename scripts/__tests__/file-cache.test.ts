@@ -3,11 +3,18 @@
  * @covers scripts/utils/file-cache.ts
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, statSync } from 'fs';
+import { mkdtempSync, rmSync, statSync, writeFileSync, existsSync, utimesSync } from 'fs';
 import { writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { loadFileCache, saveFileCache, fileCachePath, FILE_CACHE_DIR } from '../utils/file-cache.js';
+import {
+  loadFileCache,
+  saveFileCache,
+  fileCachePath,
+  FILE_CACHE_DIR,
+  cleanupExpiredCache,
+  resetCleanupThrottle,
+} from '../utils/file-cache.js';
 
 describe('file-cache', () => {
   let tmpDir: string;
@@ -86,6 +93,69 @@ describe('file-cache', () => {
       await expect(
         saveFileCache('/this/dir/cannot/exist/test.json', { x: 1 })
       ).resolves.toBeUndefined();
+    });
+  });
+
+  describe('cleanupExpiredCache', () => {
+    const twoHoursAgoSec = (Date.now() - 7200 * 1000) / 1000;
+
+    beforeEach(() => {
+      resetCleanupThrottle();
+    });
+
+    it('removes expired files for all 4 cleanable prefixes', async () => {
+      const targets = [
+        'cache-old.json',
+        'codex-usage-old.json',
+        'gemini-usage-old.json',
+        'zai-usage-old.json',
+      ];
+      for (const name of targets) {
+        const p = path.join(tmpDir, name);
+        writeFileSync(p, '{}');
+        utimesSync(p, twoHoursAgoSec, twoHoursAgoSec);
+      }
+
+      await cleanupExpiredCache(tmpDir);
+
+      for (const name of targets) {
+        expect(existsSync(path.join(tmpDir, name))).toBe(false);
+      }
+    });
+
+    it('preserves non-matching files (e.g., codex-model-cache.json)', async () => {
+      const protectedFile = path.join(tmpDir, 'codex-model-cache.json');
+      writeFileSync(protectedFile, '{}');
+      utimesSync(protectedFile, twoHoursAgoSec, twoHoursAgoSec);
+
+      await cleanupExpiredCache(tmpDir);
+
+      expect(existsSync(protectedFile)).toBe(true);
+    });
+
+    it('preserves fresh files even when prefix matches', async () => {
+      const freshFile = path.join(tmpDir, 'cache-fresh.json');
+      writeFileSync(freshFile, '{}');
+
+      await cleanupExpiredCache(tmpDir);
+
+      expect(existsSync(freshFile)).toBe(true);
+    });
+
+    it('throttles repeat calls within the cleanup interval', async () => {
+      const f1 = path.join(tmpDir, 'cache-throttle.json');
+      writeFileSync(f1, '{}');
+      utimesSync(f1, twoHoursAgoSec, twoHoursAgoSec);
+
+      await cleanupExpiredCache(tmpDir);
+      expect(existsSync(f1)).toBe(false);
+
+      // Recreate the same expired file; throttle should prevent re-sweep.
+      writeFileSync(f1, '{}');
+      utimesSync(f1, twoHoursAgoSec, twoHoursAgoSec);
+
+      await cleanupExpiredCache(tmpDir);
+      expect(existsSync(f1)).toBe(true);
     });
   });
 });

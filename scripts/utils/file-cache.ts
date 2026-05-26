@@ -13,7 +13,7 @@
  * @handbook 4.7-cross-process-file-cache
  * @tested scripts/__tests__/file-cache.test.ts
  */
-import { readFile, writeFile, mkdir } from 'fs/promises';
+import { readFile, writeFile, mkdir, readdir, stat, unlink } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { debugLog } from './debug.js';
@@ -26,6 +26,33 @@ export const FILE_CACHE_DIR = path.join(os.homedir(), '.cache', 'claude-dashboar
  * show *something* from the last successful run within this window.
  */
 export const STALE_CACHE_TTL_SECONDS = 3600;
+
+/**
+ * Cleanup of cache files older than this is eligible for sweep.
+ */
+const CACHE_CLEANUP_AGE_SECONDS = 3600;
+
+/**
+ * Cleanup sweeps at most once per this interval (in-process throttle).
+ */
+const CLEANUP_INTERVAL_MS = 3_600_000;
+
+/**
+ * Allowed filename prefixes for cleanup sweep. New client-specific cache
+ * categories must be added here (one entry per `{client}-usage-` family)
+ * so accumulation does not silently outlast the TTL window.
+ *
+ * Files that don't match any prefix (e.g., `codex-model-cache.json`) are
+ * left alone — they have their own invalidation rules.
+ */
+const CLEANABLE_PREFIXES = [
+  'cache-',
+  'codex-usage-',
+  'gemini-usage-',
+  'zai-usage-',
+];
+
+let lastCleanupTime = 0;
 
 interface FileCacheEntry<T> {
   data: T;
@@ -67,7 +94,8 @@ export async function loadFileCache<T>(
 /**
  * Write cached data to disk. Best-effort: errors are swallowed and debug-logged
  * so a misconfigured filesystem never breaks the caller. The parent directory
- * is created with 0o700 and the file with 0o600 by default.
+ * is created with 0o700 and the file with 0o600 by default. Triggers a
+ * fire-and-forget cleanup sweep (in-process throttled to hourly).
  */
 export async function saveFileCache<T>(
   cacheFile: string,
@@ -84,4 +112,48 @@ export async function saveFileCache<T>(
   } catch (err) {
     debugLog('file-cache', `save failed for ${cacheFile}`, err);
   }
+  cleanupExpiredCache().catch(() => {});
+}
+
+/**
+ * Remove expired cache files for all known cleanable prefixes.
+ * Throttled to once per `CLEANUP_INTERVAL_MS` per process to avoid
+ * repeated readdir syscalls. Safe to call concurrently — first call wins.
+ *
+ * `cacheDir` defaults to `FILE_CACHE_DIR`; the parameter is provided for tests
+ * that want to sweep an isolated temp directory.
+ */
+export async function cleanupExpiredCache(cacheDir: string = FILE_CACHE_DIR): Promise<void> {
+  const now = Date.now();
+  if (now - lastCleanupTime < CLEANUP_INTERVAL_MS) return;
+  lastCleanupTime = now;
+
+  try {
+    const files = await readdir(cacheDir);
+    for (const file of files) {
+      if (!file.endsWith('.json')) continue;
+      if (!CLEANABLE_PREFIXES.some((p) => file.startsWith(p))) continue;
+
+      const filePath = path.join(cacheDir, file);
+      try {
+        const fileStat = await stat(filePath);
+        const ageSeconds = (now - fileStat.mtimeMs) / 1000;
+        if (ageSeconds > CACHE_CLEANUP_AGE_SECONDS) {
+          await unlink(filePath);
+        }
+      } catch {
+        // Ignore individual file errors
+      }
+    }
+  } catch {
+    // Ignore cleanup errors (directory might not exist yet)
+  }
+}
+
+/**
+ * Test helper: reset the cleanup throttle so the next call runs immediately.
+ * Production code does not need this.
+ */
+export function resetCleanupThrottle(): void {
+  lastCleanupTime = 0;
 }
