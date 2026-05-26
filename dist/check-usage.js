@@ -1,10 +1,7 @@
 #!/usr/bin/env node
 
 // scripts/utils/api-client.ts
-import { readFile as readFile2, writeFile, mkdir, readdir, stat as stat2, unlink } from "fs/promises";
 import { execFile as execFile2 } from "child_process";
-import os from "os";
-import path from "path";
 
 // scripts/types.ts
 var NEGATIVE_CACHE_SECONDS = 30;
@@ -104,30 +101,90 @@ function debugLog(context, message, error) {
   }
 }
 
+// scripts/utils/file-cache.ts
+import { readFile as readFile2, writeFile, mkdir, readdir, stat as stat2, unlink } from "fs/promises";
+import os from "os";
+import path from "path";
+var FILE_CACHE_DIR = path.join(os.homedir(), ".cache", "claude-dashboard");
+var STALE_CACHE_TTL_SECONDS = 3600;
+var CACHE_CLEANUP_AGE_SECONDS = 3600;
+var CLEANUP_INTERVAL_MS = 36e5;
+var CLEANABLE_PREFIXES = [
+  "cache-",
+  "codex-usage-",
+  "gemini-usage-",
+  "zai-usage-"
+];
+var lastCleanupTime = 0;
+function fileCachePath(name) {
+  return path.join(FILE_CACHE_DIR, name);
+}
+async function loadFileCache(cacheFile, ttlSeconds) {
+  try {
+    const raw = await readFile2(cacheFile, "utf-8");
+    const entry = JSON.parse(raw);
+    if (typeof entry.timestamp !== "number")
+      return null;
+    if (!("data" in entry))
+      return null;
+    const ageSeconds = (Date.now() - entry.timestamp) / 1e3;
+    if (ageSeconds < ttlSeconds)
+      return entry;
+    return null;
+  } catch {
+    return null;
+  }
+}
+async function saveFileCache(cacheFile, data, mode = 384) {
+  try {
+    await mkdir(path.dirname(cacheFile), { recursive: true, mode: 448 });
+    await writeFile(
+      cacheFile,
+      JSON.stringify({ data, timestamp: Date.now() }),
+      { mode }
+    );
+  } catch (err) {
+    debugLog("file-cache", `save failed for ${cacheFile}`, err);
+  }
+  cleanupExpiredCache().catch(() => {
+  });
+}
+async function cleanupExpiredCache(cacheDir = FILE_CACHE_DIR) {
+  const now = Date.now();
+  if (now - lastCleanupTime < CLEANUP_INTERVAL_MS)
+    return;
+  lastCleanupTime = now;
+  try {
+    const files = await readdir(cacheDir);
+    for (const file of files) {
+      if (!file.endsWith(".json"))
+        continue;
+      if (!CLEANABLE_PREFIXES.some((p) => file.startsWith(p)))
+        continue;
+      const filePath = path.join(cacheDir, file);
+      try {
+        const fileStat = await stat2(filePath);
+        const ageSeconds = (now - fileStat.mtimeMs) / 1e3;
+        if (ageSeconds > CACHE_CLEANUP_AGE_SECONDS) {
+          await unlink(filePath);
+        }
+      } catch {
+      }
+    }
+  } catch {
+  }
+}
+
 // scripts/utils/api-client.ts
 var API_URL = "https://api.anthropic.com/api/oauth/usage";
 var API_TIMEOUT_MS = 5e3;
 var MAX_RETRY_AFTER_MS = 1e4;
-var STALE_FALLBACK_SECONDS = 3600;
-var CACHE_DIR = path.join(os.homedir(), ".cache", "claude-dashboard");
-var CACHE_CLEANUP_AGE_SECONDS = 3600;
-var CLEANUP_INTERVAL_MS = 36e5;
+var STALE_FALLBACK_SECONDS = STALE_CACHE_TTL_SECONDS;
 var usageCacheMap = /* @__PURE__ */ new Map();
 var pendingRequests = /* @__PURE__ */ new Map();
 var lastTokenHash = null;
-var lastCleanupTime = 0;
-var dirEnsured = false;
-async function ensureCacheDir() {
-  if (dirEnsured)
-    return;
-  try {
-    await mkdir(CACHE_DIR, { recursive: true, mode: 448 });
-    dirEnsured = true;
-  } catch {
-  }
-}
 function getCacheFilePath(tokenHash) {
-  return path.join(CACHE_DIR, `cache-${tokenHash}.json`);
+  return fileCachePath(`cache-${tokenHash}.json`);
 }
 function isCacheValid(tokenHash, ttlSeconds) {
   const cache = usageCacheMap.get(tokenHash);
@@ -144,7 +201,7 @@ async function fetchUsageLimits(ttlSeconds = 300) {
       const cached = usageCacheMap.get(lastTokenHash);
       if (cached && !cached.isError)
         return cached.data;
-      const fileCache = await loadFileCache(lastTokenHash, STALE_FALLBACK_SECONDS);
+      const fileCache = await loadFileCache2(lastTokenHash, STALE_FALLBACK_SECONDS);
       if (fileCache)
         return fileCache;
     }
@@ -157,7 +214,7 @@ async function fetchUsageLimits(ttlSeconds = 300) {
     if (cached) {
       if (cached.isError) {
         debugLog("api", "Negative cache hit, returning stale or null");
-        return loadFileCache(tokenHash, STALE_FALLBACK_SECONDS);
+        return loadFileCache2(tokenHash, STALE_FALLBACK_SECONDS);
       }
       return cached.data;
     }
@@ -186,7 +243,7 @@ async function fetchUsageLimits(ttlSeconds = 300) {
     });
     if (staleMemory && !staleMemory.isError)
       return staleMemory.data;
-    const staleFile = await loadFileCache(tokenHash, STALE_FALLBACK_SECONDS);
+    const staleFile = await loadFileCache2(tokenHash, STALE_FALLBACK_SECONDS);
     if (staleFile)
       return staleFile;
     return null;
@@ -309,68 +366,18 @@ async function parseAndCacheLimits(data, tokenHash) {
     seven_day_sonnet: validateLimitWindow(d.seven_day_sonnet)
   };
   usageCacheMap.set(tokenHash, { data: limits, timestamp: Date.now() });
-  await saveFileCache(tokenHash, limits);
+  await saveFileCache2(tokenHash, limits);
   return limits;
 }
 async function loadFileCacheRaw(tokenHash, ttlSeconds) {
-  try {
-    const cacheFile = getCacheFilePath(tokenHash);
-    const raw = await readFile2(cacheFile, "utf-8");
-    const content = JSON.parse(raw);
-    const ageSeconds = (Date.now() - content.timestamp) / 1e3;
-    if (ageSeconds < ttlSeconds) {
-      return { data: content.data, timestamp: content.timestamp };
-    }
-    return null;
-  } catch {
-    return null;
-  }
+  return loadFileCache(getCacheFilePath(tokenHash), ttlSeconds);
 }
-async function loadFileCache(tokenHash, ttlSeconds) {
+async function loadFileCache2(tokenHash, ttlSeconds) {
   const raw = await loadFileCacheRaw(tokenHash, ttlSeconds);
   return raw?.data ?? null;
 }
-async function saveFileCache(tokenHash, data) {
-  try {
-    await ensureCacheDir();
-    const cacheFile = getCacheFilePath(tokenHash);
-    await writeFile(
-      cacheFile,
-      JSON.stringify({
-        data,
-        timestamp: Date.now()
-      }),
-      { mode: 384 }
-    );
-    cleanupExpiredCache().catch(() => {
-    });
-  } catch {
-  }
-}
-async function cleanupExpiredCache() {
-  const now = Date.now();
-  if (now - lastCleanupTime < CLEANUP_INTERVAL_MS) {
-    return;
-  }
-  lastCleanupTime = now;
-  try {
-    const files = await readdir(CACHE_DIR);
-    for (const file of files) {
-      if (!file.startsWith("cache-") || !file.endsWith(".json")) {
-        continue;
-      }
-      const filePath = path.join(CACHE_DIR, file);
-      try {
-        const fileStat = await stat2(filePath);
-        const ageSeconds = (now - fileStat.mtimeMs) / 1e3;
-        if (ageSeconds > CACHE_CLEANUP_AGE_SECONDS) {
-          await unlink(filePath);
-        }
-      } catch {
-      }
-    }
-  } catch {
-  }
+async function saveFileCache2(tokenHash, data) {
+  await saveFileCache(getCacheFilePath(tokenHash), data);
 }
 
 // scripts/utils/codex-client.ts
@@ -381,8 +388,7 @@ import path2 from "path";
 var API_TIMEOUT_MS2 = 5e3;
 var CODEX_AUTH_PATH = path2.join(os2.homedir(), ".codex", "auth.json");
 var CODEX_CONFIG_PATH = path2.join(os2.homedir(), ".codex", "config.toml");
-var CACHE_DIR2 = path2.join(os2.homedir(), ".cache", "claude-dashboard");
-var MODEL_CACHE_PATH = path2.join(CACHE_DIR2, "codex-model-cache.json");
+var MODEL_CACHE_PATH = path2.join(FILE_CACHE_DIR, "codex-model-cache.json");
 var codexCacheMap = /* @__PURE__ */ new Map();
 var pendingRequests2 = /* @__PURE__ */ new Map();
 var cachedAuth = null;
@@ -450,7 +456,7 @@ async function getCachedModel(currentMtime) {
 }
 async function saveModelCache(model, configMtime) {
   try {
-    await mkdir2(CACHE_DIR2, { recursive: true });
+    await mkdir2(FILE_CACHE_DIR, { recursive: true });
     const cache = { model, configMtime };
     await writeFile2(MODEL_CACHE_PATH, JSON.stringify(cache), "utf-8");
     debugLog("codex", "saveModelCache: saved", model);
@@ -518,6 +524,7 @@ async function fetchCodexUsage(ttlSeconds = 60) {
     return null;
   }
   const tokenHash = hashToken(auth.accessToken);
+  const cacheFile = fileCachePath(`codex-usage-${tokenHash}.json`);
   const cached = codexCacheMap.get(tokenHash);
   if (cached) {
     const ageSeconds = (Date.now() - cached.timestamp) / 1e3;
@@ -530,6 +537,12 @@ async function fetchCodexUsage(ttlSeconds = 60) {
       return cached.data;
     }
   }
+  const fromFile = await loadFileCache(cacheFile, ttlSeconds);
+  if (fromFile) {
+    debugLog("codex", "file cache hit");
+    codexCacheMap.set(tokenHash, { data: fromFile.data, timestamp: fromFile.timestamp });
+    return fromFile.data;
+  }
   const pending = pendingRequests2.get(tokenHash);
   if (pending) {
     return pending;
@@ -538,8 +551,10 @@ async function fetchCodexUsage(ttlSeconds = 60) {
   pendingRequests2.set(tokenHash, requestPromise);
   try {
     const result = await requestPromise;
-    if (result)
+    if (result) {
+      await saveFileCache(cacheFile, result);
       return result;
+    }
     debugLog("codex", `Setting negative cache for ${NEGATIVE_CACHE_SECONDS}s`);
     codexCacheMap.set(tokenHash, {
       data: null,
@@ -549,6 +564,11 @@ async function fetchCodexUsage(ttlSeconds = 60) {
     if (cached && !cached.isError) {
       debugLog("codex", "Returning stale cache data");
       return cached.data;
+    }
+    const staleFile = await loadFileCache(cacheFile, STALE_CACHE_TTL_SECONDS);
+    if (staleFile) {
+      debugLog("codex", "stale file cache fallback");
+      return staleFile.data;
     }
     return null;
   } finally {
@@ -906,6 +926,7 @@ async function fetchGeminiUsage(ttlSeconds = 60) {
     return null;
   }
   const tokenHash = hashToken(credentials.accessToken);
+  const cacheFile = fileCachePath(`gemini-usage-${tokenHash}.json`);
   const cached = geminiCacheMap.get(tokenHash);
   if (cached) {
     const ageSeconds = (Date.now() - cached.timestamp) / 1e3;
@@ -919,6 +940,12 @@ async function fetchGeminiUsage(ttlSeconds = 60) {
       return cached.data;
     }
   }
+  const fromFile = await loadFileCache(cacheFile, ttlSeconds);
+  if (fromFile) {
+    debugLog("gemini", "file cache hit");
+    geminiCacheMap.set(tokenHash, { data: fromFile.data, timestamp: fromFile.timestamp });
+    return fromFile.data;
+  }
   const pending = pendingRequests3.get(tokenHash);
   if (pending) {
     return pending;
@@ -927,8 +954,10 @@ async function fetchGeminiUsage(ttlSeconds = 60) {
   pendingRequests3.set(tokenHash, requestPromise);
   try {
     const result = await requestPromise;
-    if (result)
+    if (result) {
+      await saveFileCache(cacheFile, result);
       return result;
+    }
     debugLog("gemini", `Setting negative cache for ${NEGATIVE_CACHE_SECONDS}s`);
     geminiCacheMap.set(tokenHash, {
       data: null,
@@ -938,6 +967,11 @@ async function fetchGeminiUsage(ttlSeconds = 60) {
     if (cached && !cached.isError) {
       debugLog("gemini", "Returning stale cache data");
       return cached.data;
+    }
+    const staleFile = await loadFileCache(cacheFile, STALE_CACHE_TTL_SECONDS);
+    if (staleFile) {
+      debugLog("gemini", "stale file cache fallback");
+      return staleFile.data;
     }
     return null;
   } finally {
@@ -1109,6 +1143,7 @@ async function fetchZaiUsage(ttlSeconds = 60) {
   }
   const tokenHash = hashToken(authToken);
   const cacheKey = `${baseUrl}:${tokenHash}`;
+  const cacheFile = fileCachePath(`zai-usage-${hashToken(cacheKey)}.json`);
   const cached = zaiCacheMap.get(cacheKey);
   if (cached) {
     const ageSeconds = (Date.now() - cached.timestamp) / 1e3;
@@ -1122,6 +1157,12 @@ async function fetchZaiUsage(ttlSeconds = 60) {
       return cached.data;
     }
   }
+  const fromFile = await loadFileCache(cacheFile, ttlSeconds);
+  if (fromFile) {
+    debugLog("zai", "file cache hit");
+    zaiCacheMap.set(cacheKey, { data: fromFile.data, timestamp: fromFile.timestamp });
+    return fromFile.data;
+  }
   const pending = pendingRequests4.get(cacheKey);
   if (pending) {
     return pending;
@@ -1132,6 +1173,7 @@ async function fetchZaiUsage(ttlSeconds = 60) {
     const result = await requestPromise;
     if (result) {
       zaiCacheMap.set(cacheKey, { data: result, timestamp: Date.now() });
+      await saveFileCache(cacheFile, result);
       return result;
     }
     debugLog("zai", `Setting negative cache for ${NEGATIVE_CACHE_SECONDS}s`);
@@ -1143,6 +1185,11 @@ async function fetchZaiUsage(ttlSeconds = 60) {
     if (cached && !cached.isError) {
       debugLog("zai", "Returning stale cache data");
       return cached.data;
+    }
+    const staleFile = await loadFileCache(cacheFile, STALE_CACHE_TTL_SECONDS);
+    if (staleFile) {
+      debugLog("zai", "stale file cache fallback");
+      return staleFile.data;
     }
     return null;
   } finally {

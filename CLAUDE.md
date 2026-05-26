@@ -106,6 +106,7 @@ claude-dashboard/
 | 위젯 구현 (파생/공유 getData) | `scripts/widgets/context.ts`, `scripts/widgets/session-id.ts` |
 | 위젯 구현 (git + 모듈 캐시) | `scripts/widgets/tag-status.ts` |
 | API 클라이언트 | `scripts/utils/api-client.ts` |
+| Cross-process file cache | `scripts/utils/file-cache.ts` |
 | 포매팅 유틸리티 | `scripts/utils/formatters.ts` |
 
 ## Widget Architecture
@@ -349,7 +350,7 @@ Before committing:
 
 - **Trigger**: Time-based (once per hour maximum)
 - **Target**: Files older than `CACHE_MAX_AGE_SECONDS` (1 hour)
-- **Pattern**: Only `cache-*.json` files in cache directory
+- **Pattern**: `cache-*.json` (Anthropic), `codex-usage-*.json`, `gemini-usage-*.json`, `zai-usage-*.json` in cache directory
 
 ### Request Deduplication
 

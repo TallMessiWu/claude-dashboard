@@ -3,7 +3,9 @@
  * Fetches usage limits from ChatGPT backend API
  * @handbook 7.1-common-api-pattern
  * @handbook 4.2-request-deduplication
+ * @handbook 4.7-cross-process-file-cache
  * @tested scripts/__tests__/widgets.test.ts
+ * @tested scripts/__tests__/codex-client.test.ts
  */
 
 import { readFile, stat, writeFile, mkdir } from 'fs/promises';
@@ -13,13 +15,19 @@ import path from 'path';
 import { NEGATIVE_CACHE_SECONDS, type CodexUsageLimits, type CacheEntry } from '../types.js';
 import { hashToken } from './hash.js';
 import { VERSION } from '../version.js';
+import {
+  loadFileCache,
+  saveFileCache,
+  fileCachePath,
+  FILE_CACHE_DIR,
+  STALE_CACHE_TTL_SECONDS,
+} from './file-cache.js';
 import { debugLog } from './debug.js';
 
 const API_TIMEOUT_MS = 5000;
 const CODEX_AUTH_PATH = path.join(os.homedir(), '.codex', 'auth.json');
 const CODEX_CONFIG_PATH = path.join(os.homedir(), '.codex', 'config.toml');
-const CACHE_DIR = path.join(os.homedir(), '.cache', 'claude-dashboard');
-const MODEL_CACHE_PATH = path.join(CACHE_DIR, 'codex-model-cache.json');
+const MODEL_CACHE_PATH = path.join(FILE_CACHE_DIR, 'codex-model-cache.json');
 
 /**
  * In-memory cache for Codex usage
@@ -177,7 +185,7 @@ async function getCachedModel(currentMtime: number): Promise<string | null> {
  */
 async function saveModelCache(model: string, configMtime: number): Promise<void> {
   try {
-    await mkdir(CACHE_DIR, { recursive: true });
+    await mkdir(FILE_CACHE_DIR, { recursive: true });
     const cache: CodexModelCache = { model, configMtime };
     await writeFile(MODEL_CACHE_PATH, JSON.stringify(cache), 'utf-8');
     debugLog('codex', 'saveModelCache: saved', model);
@@ -273,6 +281,7 @@ export async function fetchCodexUsage(ttlSeconds: number = 60): Promise<CodexUsa
   }
 
   const tokenHash = hashToken(auth.accessToken);
+  const cacheFile = fileCachePath(`codex-usage-${tokenHash}.json`);
 
   // Check memory cache (includes negative cache entries)
   const cached = codexCacheMap.get(tokenHash);
@@ -288,6 +297,14 @@ export async function fetchCodexUsage(ttlSeconds: number = 60): Promise<CodexUsa
     }
   }
 
+  // Check file cache (shared across processes — narrows multi-session stampede)
+  const fromFile = await loadFileCache<CodexUsageLimits>(cacheFile, ttlSeconds);
+  if (fromFile) {
+    debugLog('codex', 'file cache hit');
+    codexCacheMap.set(tokenHash, { data: fromFile.data, timestamp: fromFile.timestamp });
+    return fromFile.data;
+  }
+
   // Check pending request
   const pending = pendingRequests.get(tokenHash);
   if (pending) {
@@ -300,7 +317,10 @@ export async function fetchCodexUsage(ttlSeconds: number = 60): Promise<CodexUsa
 
   try {
     const result = await requestPromise;
-    if (result) return result;
+    if (result) {
+      await saveFileCache(cacheFile, result);
+      return result;
+    }
 
     // API failed - set negative cache to prevent rapid retries
     debugLog('codex', `Setting negative cache for ${NEGATIVE_CACHE_SECONDS}s`);
@@ -316,7 +336,13 @@ export async function fetchCodexUsage(ttlSeconds: number = 60): Promise<CodexUsa
       return cached.data;
     }
 
-    // No file cache available for Codex — return null
+    // Stale file cache as last resort
+    const staleFile = await loadFileCache<CodexUsageLimits>(cacheFile, STALE_CACHE_TTL_SECONDS);
+    if (staleFile) {
+      debugLog('codex', 'stale file cache fallback');
+      return staleFile.data;
+    }
+
     return null;
   } finally {
     pendingRequests.delete(tokenHash);
@@ -401,4 +427,5 @@ async function fetchFromCodexApi(
 export function clearCodexCache(): void {
   codexCacheMap.clear();
   cachedAuth = null;
+  modelDetectionFailedAt = null;
 }

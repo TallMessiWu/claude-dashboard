@@ -260,4 +260,129 @@ describe('gemini-client', () => {
       expect(usedPercent).toBe(0);
     });
   });
+
+  describe('fetchGeminiUsage file cache integration', () => {
+    const originalProject = process.env.GOOGLE_CLOUD_PROJECT;
+
+    beforeEach(async () => {
+      vi.resetModules();
+      // Use env var to short-circuit getProjectId so we don't need to mock loadCodeAssist API
+      process.env.GOOGLE_CLOUD_PROJECT = 'test-project';
+      // Force keychain to fail so the credentials file path is taken
+      const { execFileSync } = await import('child_process');
+      vi.mocked(execFileSync).mockImplementation(() => {
+        throw new Error('mock: keychain unavailable');
+      });
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      vi.doUnmock('../utils/file-cache.js');
+      vi.doUnmock('fs/promises');
+      if (originalProject === undefined) delete process.env.GOOGLE_CLOUD_PROJECT;
+      else process.env.GOOGLE_CLOUD_PROJECT = originalProject;
+    });
+
+    it('returns file cache hit and skips network fetch', async () => {
+      const sample = {
+        model: 'gemini-2.5-pro',
+        usedPercent: 33,
+        resetAt: new Date(Date.now() + 86_400_000).toISOString(),
+        buckets: [],
+      };
+
+      const credsJson = JSON.stringify({
+        access_token: 'gemini-token',
+        refresh_token: 'gemini-refresh',
+        expiry_date: Date.now() + 3_600_000, // future
+      });
+
+      vi.doMock('fs/promises', async (importOriginal) => {
+        const actual = await importOriginal<typeof import('fs/promises')>();
+        return {
+          ...actual,
+          stat: vi.fn().mockResolvedValue({ mtimeMs: 12345 }),
+          readFile: vi.fn().mockResolvedValue(credsJson),
+        };
+      });
+
+      vi.doMock('../utils/file-cache.js', () => ({
+        loadFileCache: vi.fn().mockResolvedValue({ data: sample, timestamp: Date.now() }),
+        saveFileCache: vi.fn(),
+        fileCachePath: (name: string) => `/tmp/${name}`,
+        FILE_CACHE_DIR: '/tmp',
+        STALE_CACHE_TTL_SECONDS: 3600,
+      }));
+
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response('{}', { status: 200 })
+      );
+
+      const { fetchGeminiUsage, clearGeminiCache } = await import('../utils/gemini-client.js');
+      clearGeminiCache();
+
+      const result = await fetchGeminiUsage();
+
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(result).toEqual(sample);
+    });
+
+    it('writes to file cache after successful API fetch', async () => {
+      const saveSpy = vi.fn().mockResolvedValue(undefined);
+
+      const credsJson = JSON.stringify({
+        access_token: 'gemini-token',
+        refresh_token: 'gemini-refresh',
+        expiry_date: Date.now() + 3_600_000,
+      });
+
+      vi.doMock('fs/promises', async (importOriginal) => {
+        const actual = await importOriginal<typeof import('fs/promises')>();
+        return {
+          ...actual,
+          stat: vi.fn().mockResolvedValue({ mtimeMs: 12345 }),
+          readFile: vi.fn().mockImplementation((path: unknown) => {
+            if (typeof path === 'string' && path.includes('oauth_creds.json')) {
+              return Promise.resolve(credsJson);
+            }
+            return Promise.reject(new Error('ENOENT'));
+          }),
+        };
+      });
+
+      vi.doMock('../utils/file-cache.js', () => ({
+        loadFileCache: vi.fn().mockResolvedValue(null),
+        saveFileCache: saveSpy,
+        fileCachePath: (name: string) => `/tmp/${name}`,
+        FILE_CACHE_DIR: '/tmp',
+        STALE_CACHE_TTL_SECONDS: 3600,
+      }));
+
+      const apiResponse = {
+        buckets: [
+          {
+            modelId: 'gemini-2.5-pro',
+            remainingFraction: 0.75,
+            resetTime: new Date(Date.now() + 86_400_000).toISOString(),
+          },
+        ],
+      };
+
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify(apiResponse), { status: 200 })
+      );
+
+      const { fetchGeminiUsage, clearGeminiCache } = await import('../utils/gemini-client.js');
+      clearGeminiCache();
+
+      const result = await fetchGeminiUsage();
+
+      expect(saveSpy).toHaveBeenCalledTimes(1);
+      expect(saveSpy).toHaveBeenCalledWith(
+        expect.stringContaining('gemini-usage-'),
+        expect.any(Object)
+      );
+      expect(result).toBeTruthy();
+    });
+  });
 });

@@ -3,6 +3,7 @@
  * Fetches usage quota from z.ai or ZHIPU API
  * @handbook 7.1-common-api-pattern
  * @handbook 4.2-request-deduplication
+ * @handbook 4.7-cross-process-file-cache
  * @tested scripts/__tests__/zai-api-client.test.ts
  */
 
@@ -11,6 +12,12 @@ import { isZaiProvider, getZaiApiBaseUrl } from './provider.js';
 import { debugLog } from './debug.js';
 import { hashToken } from './hash.js';
 import { clampPercent } from './formatters.js';
+import {
+  loadFileCache,
+  saveFileCache,
+  fileCachePath,
+  STALE_CACHE_TTL_SECONDS,
+} from './file-cache.js';
 
 // Re-export for backward compatibility (used by tests)
 export { clampPercent };
@@ -139,6 +146,7 @@ export async function fetchZaiUsage(ttlSeconds: number = 60): Promise<ZaiUsageLi
   // Use base URL + token hash as cache key (supports multi-account)
   const tokenHash = hashToken(authToken);
   const cacheKey = `${baseUrl}:${tokenHash}`;
+  const cacheFile = fileCachePath(`zai-usage-${hashToken(cacheKey)}.json`);
 
   // Check memory cache (includes negative cache entries)
   const cached = zaiCacheMap.get(cacheKey);
@@ -155,6 +163,14 @@ export async function fetchZaiUsage(ttlSeconds: number = 60): Promise<ZaiUsageLi
     }
   }
 
+  // Check file cache (shared across processes — narrows multi-session stampede)
+  const fromFile = await loadFileCache<ZaiUsageLimits>(cacheFile, ttlSeconds);
+  if (fromFile) {
+    debugLog('zai', 'file cache hit');
+    zaiCacheMap.set(cacheKey, { data: fromFile.data, timestamp: fromFile.timestamp });
+    return fromFile.data;
+  }
+
   // Check pending request
   const pending = pendingRequests.get(cacheKey);
   if (pending) {
@@ -169,6 +185,7 @@ export async function fetchZaiUsage(ttlSeconds: number = 60): Promise<ZaiUsageLi
     const result = await requestPromise;
     if (result) {
       zaiCacheMap.set(cacheKey, { data: result, timestamp: Date.now() });
+      await saveFileCache(cacheFile, result);
       return result;
     }
 
@@ -186,7 +203,13 @@ export async function fetchZaiUsage(ttlSeconds: number = 60): Promise<ZaiUsageLi
       return cached.data;
     }
 
-    // No file cache available for z.ai — return null
+    // Stale file cache as last resort
+    const staleFile = await loadFileCache<ZaiUsageLimits>(cacheFile, STALE_CACHE_TTL_SECONDS);
+    if (staleFile) {
+      debugLog('zai', 'stale file cache fallback');
+      return staleFile.data;
+    }
+
     return null;
   } finally {
     pendingRequests.delete(cacheKey);
