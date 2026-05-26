@@ -18,7 +18,8 @@
     "i18n",
     "multi-cli",
     "codex",
-    "gemini"
+    "gemini",
+    "zai"
   ],
   "author": "uppinote",
   "license": "MIT",

@@ -14,7 +14,12 @@ import os from 'os';
 import path from 'path';
 import { NEGATIVE_CACHE_SECONDS, type GeminiUsageLimits, type CacheEntry } from '../types.js';
 import { hashToken } from './hash.js';
-import { loadFileCache, saveFileCache, fileCachePath } from './file-cache.js';
+import {
+  loadFileCache,
+  saveFileCache,
+  fileCachePath,
+  STALE_CACHE_TTL_SECONDS,
+} from './file-cache.js';
 import { VERSION } from '../version.js';
 import { debugLog } from './debug.js';
 
@@ -563,7 +568,7 @@ export async function fetchGeminiUsage(ttlSeconds: number = 60): Promise<GeminiU
     }
 
     // Stale file cache as last resort
-    const staleFile = await loadFileCache<GeminiUsageLimits>(cacheFile, 3600);
+    const staleFile = await loadFileCache<GeminiUsageLimits>(cacheFile, STALE_CACHE_TTL_SECONDS);
     if (staleFile) {
       debugLog('gemini', 'stale file cache fallback');
       return staleFile.data;

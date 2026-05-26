@@ -2197,6 +2197,7 @@ import { readFile as readFile6, writeFile as writeFile2, mkdir as mkdir3 } from 
 import os2 from "os";
 import path2 from "path";
 var FILE_CACHE_DIR = path2.join(os2.homedir(), ".cache", "claude-dashboard");
+var STALE_CACHE_TTL_SECONDS = 3600;
 function fileCachePath(name) {
   return path2.join(FILE_CACHE_DIR, name);
 }
@@ -2205,6 +2206,8 @@ async function loadFileCache2(cacheFile, ttlSeconds) {
     const raw = await readFile6(cacheFile, "utf-8");
     const entry = JSON.parse(raw);
     if (typeof entry.timestamp !== "number")
+      return null;
+    if (!("data" in entry))
       return null;
     const ageSeconds = (Date.now() - entry.timestamp) / 1e3;
     if (ageSeconds < ttlSeconds)
@@ -2231,8 +2234,7 @@ async function saveFileCache2(cacheFile, data, mode = 384) {
 var API_TIMEOUT_MS2 = 5e3;
 var CODEX_AUTH_PATH = path3.join(os3.homedir(), ".codex", "auth.json");
 var CODEX_CONFIG_PATH = path3.join(os3.homedir(), ".codex", "config.toml");
-var CACHE_DIR2 = path3.join(os3.homedir(), ".cache", "claude-dashboard");
-var MODEL_CACHE_PATH = path3.join(CACHE_DIR2, "codex-model-cache.json");
+var MODEL_CACHE_PATH = path3.join(FILE_CACHE_DIR, "codex-model-cache.json");
 var codexCacheMap = /* @__PURE__ */ new Map();
 var pendingRequests3 = /* @__PURE__ */ new Map();
 var cachedAuth = null;
@@ -2300,7 +2302,7 @@ async function getCachedModel(currentMtime) {
 }
 async function saveModelCache(model, configMtime) {
   try {
-    await mkdir4(CACHE_DIR2, { recursive: true });
+    await mkdir4(FILE_CACHE_DIR, { recursive: true });
     const cache = { model, configMtime };
     await writeFile3(MODEL_CACHE_PATH, JSON.stringify(cache), "utf-8");
     debugLog("codex", "saveModelCache: saved", model);
@@ -2409,7 +2411,7 @@ async function fetchCodexUsage(ttlSeconds = 60) {
       debugLog("codex", "Returning stale cache data");
       return cached.data;
     }
-    const staleFile = await loadFileCache2(cacheFile, 3600);
+    const staleFile = await loadFileCache2(cacheFile, STALE_CACHE_TTL_SECONDS);
     if (staleFile) {
       debugLog("codex", "stale file cache fallback");
       return staleFile.data;
@@ -2874,7 +2876,7 @@ async function fetchGeminiUsage(ttlSeconds = 60) {
       debugLog("gemini", "Returning stale cache data");
       return cached.data;
     }
-    const staleFile = await loadFileCache2(cacheFile, 3600);
+    const staleFile = await loadFileCache2(cacheFile, STALE_CACHE_TTL_SECONDS);
     if (staleFile) {
       debugLog("gemini", "stale file cache fallback");
       return staleFile.data;
@@ -3133,7 +3135,7 @@ async function fetchZaiUsage(ttlSeconds = 60) {
       debugLog("zai", "Returning stale cache data");
       return cached.data;
     }
-    const staleFile = await loadFileCache2(cacheFile, 3600);
+    const staleFile = await loadFileCache2(cacheFile, STALE_CACHE_TTL_SECONDS);
     if (staleFile) {
       debugLog("zai", "stale file cache fallback");
       return staleFile.data;

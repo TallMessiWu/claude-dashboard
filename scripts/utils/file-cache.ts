@@ -20,6 +20,13 @@ import { debugLog } from './debug.js';
 
 export const FILE_CACHE_DIR = path.join(os.homedir(), '.cache', 'claude-dashboard');
 
+/**
+ * Default TTL for "stale-as-last-resort" reads when fresh fetch fails.
+ * Callers use this when negative-caching an API failure but still want to
+ * show *something* from the last successful run within this window.
+ */
+export const STALE_CACHE_TTL_SECONDS = 3600;
+
 interface FileCacheEntry<T> {
   data: T;
   timestamp: number;
@@ -27,6 +34,10 @@ interface FileCacheEntry<T> {
 
 /**
  * Resolve a cache file path relative to FILE_CACHE_DIR.
+ *
+ * Expects a plain filename (no path separators). Internal helper — does not
+ * sanitize against traversal sequences like `../`; callers should use
+ * predictable template strings (e.g., `${client}-usage-${tokenHash}.json`).
  */
 export function fileCachePath(name: string): string {
   return path.join(FILE_CACHE_DIR, name);
@@ -34,7 +45,7 @@ export function fileCachePath(name: string): string {
 
 /**
  * Read cached data from disk. Returns null when the file is missing,
- * malformed, lacks a timestamp, or is older than `ttlSeconds`.
+ * malformed, lacks a timestamp or data field, or is older than `ttlSeconds`.
  */
 export async function loadFileCache<T>(
   cacheFile: string,
@@ -44,6 +55,7 @@ export async function loadFileCache<T>(
     const raw = await readFile(cacheFile, 'utf-8');
     const entry = JSON.parse(raw) as FileCacheEntry<T>;
     if (typeof entry.timestamp !== 'number') return null;
+    if (!('data' in entry)) return null;
     const ageSeconds = (Date.now() - entry.timestamp) / 1000;
     if (ageSeconds < ttlSeconds) return entry;
     return null;

@@ -12,7 +12,12 @@ import { isZaiProvider, getZaiApiBaseUrl } from './provider.js';
 import { debugLog } from './debug.js';
 import { hashToken } from './hash.js';
 import { clampPercent } from './formatters.js';
-import { loadFileCache, saveFileCache, fileCachePath } from './file-cache.js';
+import {
+  loadFileCache,
+  saveFileCache,
+  fileCachePath,
+  STALE_CACHE_TTL_SECONDS,
+} from './file-cache.js';
 
 // Re-export for backward compatibility (used by tests)
 export { clampPercent };
@@ -199,7 +204,7 @@ export async function fetchZaiUsage(ttlSeconds: number = 60): Promise<ZaiUsageLi
     }
 
     // Stale file cache as last resort
-    const staleFile = await loadFileCache<ZaiUsageLimits>(cacheFile, 3600);
+    const staleFile = await loadFileCache<ZaiUsageLimits>(cacheFile, STALE_CACHE_TTL_SECONDS);
     if (staleFile) {
       debugLog('zai', 'stale file cache fallback');
       return staleFile.data;

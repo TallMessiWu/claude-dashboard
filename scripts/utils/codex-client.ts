@@ -15,14 +15,19 @@ import path from 'path';
 import { NEGATIVE_CACHE_SECONDS, type CodexUsageLimits, type CacheEntry } from '../types.js';
 import { hashToken } from './hash.js';
 import { VERSION } from '../version.js';
-import { loadFileCache, saveFileCache, fileCachePath } from './file-cache.js';
+import {
+  loadFileCache,
+  saveFileCache,
+  fileCachePath,
+  FILE_CACHE_DIR,
+  STALE_CACHE_TTL_SECONDS,
+} from './file-cache.js';
 import { debugLog } from './debug.js';
 
 const API_TIMEOUT_MS = 5000;
 const CODEX_AUTH_PATH = path.join(os.homedir(), '.codex', 'auth.json');
 const CODEX_CONFIG_PATH = path.join(os.homedir(), '.codex', 'config.toml');
-const CACHE_DIR = path.join(os.homedir(), '.cache', 'claude-dashboard');
-const MODEL_CACHE_PATH = path.join(CACHE_DIR, 'codex-model-cache.json');
+const MODEL_CACHE_PATH = path.join(FILE_CACHE_DIR, 'codex-model-cache.json');
 
 /**
  * In-memory cache for Codex usage
@@ -180,7 +185,7 @@ async function getCachedModel(currentMtime: number): Promise<string | null> {
  */
 async function saveModelCache(model: string, configMtime: number): Promise<void> {
   try {
-    await mkdir(CACHE_DIR, { recursive: true });
+    await mkdir(FILE_CACHE_DIR, { recursive: true });
     const cache: CodexModelCache = { model, configMtime };
     await writeFile(MODEL_CACHE_PATH, JSON.stringify(cache), 'utf-8');
     debugLog('codex', 'saveModelCache: saved', model);
@@ -332,7 +337,7 @@ export async function fetchCodexUsage(ttlSeconds: number = 60): Promise<CodexUsa
     }
 
     // Stale file cache as last resort
-    const staleFile = await loadFileCache<CodexUsageLimits>(cacheFile, 3600);
+    const staleFile = await loadFileCache<CodexUsageLimits>(cacheFile, STALE_CACHE_TTL_SECONDS);
     if (staleFile) {
       debugLog('codex', 'stale file cache fallback');
       return staleFile.data;
@@ -422,4 +427,5 @@ async function fetchFromCodexApi(
 export function clearCodexCache(): void {
   codexCacheMap.clear();
   cachedAuth = null;
+  modelDetectionFailedAt = null;
 }
