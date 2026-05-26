@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 // scripts/statusline.ts
-import { readFile as readFile9, stat as stat10 } from "fs/promises";
+import { readFile as readFile10, stat as stat10 } from "fs/promises";
 import { join as join6 } from "path";
 import { homedir as homedir6 } from "os";
 
@@ -1472,9 +1472,9 @@ async function countFiles(dir, pattern) {
     return 0;
   }
 }
-async function fileExists(path4) {
+async function fileExists(path5) {
   try {
-    await stat4(path4);
+    await stat4(path5);
     return true;
   } catch {
     return false;
@@ -1502,9 +1502,9 @@ async function countMcps(projectDir) {
     { path: join3(homeDir, ".config", "claude-code", "mcp.json"), key: "mcpServers" }
   ];
   const counts = await Promise.all(
-    mcpPaths.map(async ({ path: path4, key }) => {
+    mcpPaths.map(async ({ path: path5, key }) => {
       try {
-        const content = await readFile4(path4, "utf-8");
+        const content = await readFile4(path5, "utf-8");
         const config = JSON.parse(content);
         return Object.keys(config[key] || {}).length;
       } catch {
@@ -2187,15 +2187,52 @@ var cacheHitWidget = {
 };
 
 // scripts/utils/codex-client.ts
-import { readFile as readFile6, stat as stat7, writeFile as writeFile2, mkdir as mkdir3 } from "fs/promises";
+import { readFile as readFile7, stat as stat7, writeFile as writeFile3, mkdir as mkdir4 } from "fs/promises";
 import { execFile as execFile4 } from "child_process";
+import os3 from "os";
+import path3 from "path";
+
+// scripts/utils/file-cache.ts
+import { readFile as readFile6, writeFile as writeFile2, mkdir as mkdir3 } from "fs/promises";
 import os2 from "os";
 import path2 from "path";
+var FILE_CACHE_DIR = path2.join(os2.homedir(), ".cache", "claude-dashboard");
+function fileCachePath(name) {
+  return path2.join(FILE_CACHE_DIR, name);
+}
+async function loadFileCache2(cacheFile, ttlSeconds) {
+  try {
+    const raw = await readFile6(cacheFile, "utf-8");
+    const entry = JSON.parse(raw);
+    if (typeof entry.timestamp !== "number")
+      return null;
+    const ageSeconds = (Date.now() - entry.timestamp) / 1e3;
+    if (ageSeconds < ttlSeconds)
+      return entry;
+    return null;
+  } catch {
+    return null;
+  }
+}
+async function saveFileCache2(cacheFile, data, mode = 384) {
+  try {
+    await mkdir3(path2.dirname(cacheFile), { recursive: true, mode: 448 });
+    await writeFile2(
+      cacheFile,
+      JSON.stringify({ data, timestamp: Date.now() }),
+      { mode }
+    );
+  } catch (err) {
+    debugLog("file-cache", `save failed for ${cacheFile}`, err);
+  }
+}
+
+// scripts/utils/codex-client.ts
 var API_TIMEOUT_MS2 = 5e3;
-var CODEX_AUTH_PATH = path2.join(os2.homedir(), ".codex", "auth.json");
-var CODEX_CONFIG_PATH = path2.join(os2.homedir(), ".codex", "config.toml");
-var CACHE_DIR2 = path2.join(os2.homedir(), ".cache", "claude-dashboard");
-var MODEL_CACHE_PATH = path2.join(CACHE_DIR2, "codex-model-cache.json");
+var CODEX_AUTH_PATH = path3.join(os3.homedir(), ".codex", "auth.json");
+var CODEX_CONFIG_PATH = path3.join(os3.homedir(), ".codex", "config.toml");
+var CACHE_DIR2 = path3.join(os3.homedir(), ".cache", "claude-dashboard");
+var MODEL_CACHE_PATH = path3.join(CACHE_DIR2, "codex-model-cache.json");
 var codexCacheMap = /* @__PURE__ */ new Map();
 var pendingRequests3 = /* @__PURE__ */ new Map();
 var cachedAuth = null;
@@ -2216,7 +2253,7 @@ async function getCodexAuth() {
     if (cachedAuth && cachedAuth.mtime === fileStat.mtimeMs) {
       return cachedAuth.data;
     }
-    const raw = await readFile6(CODEX_AUTH_PATH, "utf-8");
+    const raw = await readFile7(CODEX_AUTH_PATH, "utf-8");
     const json = JSON.parse(raw);
     const accessToken = json?.tokens?.access_token;
     const accountId = json?.tokens?.account_id;
@@ -2232,7 +2269,7 @@ async function getCodexAuth() {
 }
 async function getModelFromConfig() {
   try {
-    const raw = await readFile6(CODEX_CONFIG_PATH, "utf-8");
+    const raw = await readFile7(CODEX_CONFIG_PATH, "utf-8");
     const match = raw.match(/^model\s*=\s*["']([^"']+)["']\s*(?:#.*)?$/m);
     return match ? match[1] : null;
   } catch {
@@ -2249,7 +2286,7 @@ async function getConfigMtime() {
 }
 async function getCachedModel(currentMtime) {
   try {
-    const raw = await readFile6(MODEL_CACHE_PATH, "utf-8");
+    const raw = await readFile7(MODEL_CACHE_PATH, "utf-8");
     const cache = JSON.parse(raw);
     if (cache.configMtime === currentMtime && cache.model) {
       debugLog("codex", "getCachedModel: cache hit", cache.model);
@@ -2263,9 +2300,9 @@ async function getCachedModel(currentMtime) {
 }
 async function saveModelCache(model, configMtime) {
   try {
-    await mkdir3(CACHE_DIR2, { recursive: true });
+    await mkdir4(CACHE_DIR2, { recursive: true });
     const cache = { model, configMtime };
-    await writeFile2(MODEL_CACHE_PATH, JSON.stringify(cache), "utf-8");
+    await writeFile3(MODEL_CACHE_PATH, JSON.stringify(cache), "utf-8");
     debugLog("codex", "saveModelCache: saved", model);
   } catch (err) {
     debugLog("codex", "saveModelCache: error", err);
@@ -2331,6 +2368,7 @@ async function fetchCodexUsage(ttlSeconds = 60) {
     return null;
   }
   const tokenHash = hashToken(auth.accessToken);
+  const cacheFile = fileCachePath(`codex-usage-${tokenHash}.json`);
   const cached = codexCacheMap.get(tokenHash);
   if (cached) {
     const ageSeconds = (Date.now() - cached.timestamp) / 1e3;
@@ -2343,6 +2381,12 @@ async function fetchCodexUsage(ttlSeconds = 60) {
       return cached.data;
     }
   }
+  const fromFile = await loadFileCache2(cacheFile, ttlSeconds);
+  if (fromFile) {
+    debugLog("codex", "file cache hit");
+    codexCacheMap.set(tokenHash, { data: fromFile.data, timestamp: fromFile.timestamp });
+    return fromFile.data;
+  }
   const pending = pendingRequests3.get(tokenHash);
   if (pending) {
     return pending;
@@ -2351,8 +2395,10 @@ async function fetchCodexUsage(ttlSeconds = 60) {
   pendingRequests3.set(tokenHash, requestPromise);
   try {
     const result = await requestPromise;
-    if (result)
+    if (result) {
+      await saveFileCache2(cacheFile, result);
       return result;
+    }
     debugLog("codex", `Setting negative cache for ${NEGATIVE_CACHE_SECONDS}s`);
     codexCacheMap.set(tokenHash, {
       data: null,
@@ -2362,6 +2408,11 @@ async function fetchCodexUsage(ttlSeconds = 60) {
     if (cached && !cached.isError) {
       debugLog("codex", "Returning stale cache data");
       return cached.data;
+    }
+    const staleFile = await loadFileCache2(cacheFile, 3600);
+    if (staleFile) {
+      debugLog("codex", "stale file cache fallback");
+      return staleFile.data;
     }
     return null;
   } finally {
@@ -2482,10 +2533,10 @@ var codexUsageWidget = {
 };
 
 // scripts/utils/gemini-client.ts
-import { readFile as readFile7, writeFile as writeFile3, stat as stat8 } from "fs/promises";
+import { readFile as readFile8, writeFile as writeFile4, stat as stat8 } from "fs/promises";
 import { execFile as execFile5 } from "child_process";
-import os3 from "os";
-import path3 from "path";
+import os4 from "os";
+import path4 from "path";
 var API_TIMEOUT_MS3 = 5e3;
 var GEMINI_DIR = ".gemini";
 var OAUTH_CREDS_FILE = "oauth_creds.json";
@@ -2506,7 +2557,7 @@ var keychainCache = null;
 var KEYCHAIN_CACHE_TTL_MS2 = 1e4;
 var cachedSettings = null;
 function getGeminiDir() {
-  return path3.join(os3.homedir(), GEMINI_DIR);
+  return path4.join(os4.homedir(), GEMINI_DIR);
 }
 async function isGeminiInstalled() {
   try {
@@ -2514,7 +2565,7 @@ async function isGeminiInstalled() {
     if (keychainToken) {
       return true;
     }
-    const oauthPath = path3.join(getGeminiDir(), OAUTH_CREDS_FILE);
+    const oauthPath = path4.join(getGeminiDir(), OAUTH_CREDS_FILE);
     await stat8(oauthPath);
     return true;
   } catch {
@@ -2522,7 +2573,7 @@ async function isGeminiInstalled() {
   }
 }
 async function getTokenFromKeychain() {
-  if (os3.platform() !== "darwin") {
+  if (os4.platform() !== "darwin") {
     return null;
   }
   if (keychainCache && Date.now() - keychainCache.timestamp < KEYCHAIN_CACHE_TTL_MS2) {
@@ -2565,12 +2616,12 @@ async function getTokenFromKeychain() {
 }
 async function getCredentialsFromFile2() {
   try {
-    const oauthPath = path3.join(getGeminiDir(), OAUTH_CREDS_FILE);
+    const oauthPath = path4.join(getGeminiDir(), OAUTH_CREDS_FILE);
     const fileStat = await stat8(oauthPath);
     if (cachedCredentials && cachedCredentials.mtime === fileStat.mtimeMs) {
       return cachedCredentials.data;
     }
-    const raw = await readFile7(oauthPath, "utf-8");
+    const raw = await readFile8(oauthPath, "utf-8");
     const json = JSON.parse(raw);
     const accessToken = json?.access_token;
     if (!accessToken) {
@@ -2658,10 +2709,10 @@ async function refreshToken(credentials) {
 }
 async function saveCredentialsToFile(credentials, rawResponse) {
   try {
-    const oauthPath = path3.join(getGeminiDir(), OAUTH_CREDS_FILE);
+    const oauthPath = path4.join(getGeminiDir(), OAUTH_CREDS_FILE);
     let existingData = {};
     try {
-      const raw = await readFile7(oauthPath, "utf-8");
+      const raw = await readFile8(oauthPath, "utf-8");
       existingData = JSON.parse(raw);
     } catch {
     }
@@ -2673,7 +2724,7 @@ async function saveCredentialsToFile(credentials, rawResponse) {
       token_type: rawResponse.token_type || "Bearer",
       scope: rawResponse.scope || existingData.scope
     };
-    await writeFile3(oauthPath, JSON.stringify(newData, null, 2), { mode: 384 });
+    await writeFile4(oauthPath, JSON.stringify(newData, null, 2), { mode: 384 });
     debugLog("gemini", "saveCredentialsToFile: saved");
   } catch (err) {
     debugLog("gemini", "saveCredentialsToFile: error", err);
@@ -2699,12 +2750,12 @@ var projectIdCacheMap = /* @__PURE__ */ new Map();
 var PROJECT_ID_CACHE_TTL_MS = 5 * 60 * 1e3;
 async function getGeminiSettings() {
   try {
-    const settingsPath = path3.join(getGeminiDir(), SETTINGS_FILE);
+    const settingsPath = path4.join(getGeminiDir(), SETTINGS_FILE);
     const fileStat = await stat8(settingsPath);
     if (cachedSettings && cachedSettings.mtime === fileStat.mtimeMs) {
       return cachedSettings.data;
     }
-    const raw = await readFile7(settingsPath, "utf-8");
+    const raw = await readFile8(settingsPath, "utf-8");
     const json = JSON.parse(raw);
     const data = {
       cloudaicompanionProject: json?.cloudaicompanionProject,
@@ -2781,6 +2832,7 @@ async function fetchGeminiUsage(ttlSeconds = 60) {
     return null;
   }
   const tokenHash = hashToken(credentials.accessToken);
+  const cacheFile = fileCachePath(`gemini-usage-${tokenHash}.json`);
   const cached = geminiCacheMap.get(tokenHash);
   if (cached) {
     const ageSeconds = (Date.now() - cached.timestamp) / 1e3;
@@ -2794,6 +2846,12 @@ async function fetchGeminiUsage(ttlSeconds = 60) {
       return cached.data;
     }
   }
+  const fromFile = await loadFileCache2(cacheFile, ttlSeconds);
+  if (fromFile) {
+    debugLog("gemini", "file cache hit");
+    geminiCacheMap.set(tokenHash, { data: fromFile.data, timestamp: fromFile.timestamp });
+    return fromFile.data;
+  }
   const pending = pendingRequests4.get(tokenHash);
   if (pending) {
     return pending;
@@ -2802,8 +2860,10 @@ async function fetchGeminiUsage(ttlSeconds = 60) {
   pendingRequests4.set(tokenHash, requestPromise);
   try {
     const result = await requestPromise;
-    if (result)
+    if (result) {
+      await saveFileCache2(cacheFile, result);
       return result;
+    }
     debugLog("gemini", `Setting negative cache for ${NEGATIVE_CACHE_SECONDS}s`);
     geminiCacheMap.set(tokenHash, {
       data: null,
@@ -2813,6 +2873,11 @@ async function fetchGeminiUsage(ttlSeconds = 60) {
     if (cached && !cached.isError) {
       debugLog("gemini", "Returning stale cache data");
       return cached.data;
+    }
+    const staleFile = await loadFileCache2(cacheFile, 3600);
+    if (staleFile) {
+      debugLog("gemini", "stale file cache fallback");
+      return staleFile.data;
     }
     return null;
   } finally {
@@ -3025,6 +3090,7 @@ async function fetchZaiUsage(ttlSeconds = 60) {
   }
   const tokenHash = hashToken(authToken);
   const cacheKey = `${baseUrl}:${tokenHash}`;
+  const cacheFile = fileCachePath(`zai-usage-${hashToken(cacheKey)}.json`);
   const cached = zaiCacheMap.get(cacheKey);
   if (cached) {
     const ageSeconds = (Date.now() - cached.timestamp) / 1e3;
@@ -3038,6 +3104,12 @@ async function fetchZaiUsage(ttlSeconds = 60) {
       return cached.data;
     }
   }
+  const fromFile = await loadFileCache2(cacheFile, ttlSeconds);
+  if (fromFile) {
+    debugLog("zai", "file cache hit");
+    zaiCacheMap.set(cacheKey, { data: fromFile.data, timestamp: fromFile.timestamp });
+    return fromFile.data;
+  }
   const pending = pendingRequests5.get(cacheKey);
   if (pending) {
     return pending;
@@ -3048,6 +3120,7 @@ async function fetchZaiUsage(ttlSeconds = 60) {
     const result = await requestPromise;
     if (result) {
       zaiCacheMap.set(cacheKey, { data: result, timestamp: Date.now() });
+      await saveFileCache2(cacheFile, result);
       return result;
     }
     debugLog("zai", `Setting negative cache for ${NEGATIVE_CACHE_SECONDS}s`);
@@ -3059,6 +3132,11 @@ async function fetchZaiUsage(ttlSeconds = 60) {
     if (cached && !cached.isError) {
       debugLog("zai", "Returning stale cache data");
       return cached.data;
+    }
+    const staleFile = await loadFileCache2(cacheFile, 3600);
+    if (staleFile) {
+      debugLog("zai", "stale file cache fallback");
+      return staleFile.data;
     }
     return null;
   } finally {
@@ -3336,7 +3414,7 @@ var forecastWidget = {
 };
 
 // scripts/utils/budget.ts
-import { readFile as readFile8, mkdir as mkdir4, writeFile as writeFile4 } from "fs/promises";
+import { readFile as readFile9, mkdir as mkdir5, writeFile as writeFile5 } from "fs/promises";
 import { join as join5 } from "path";
 import { homedir as homedir4 } from "os";
 var BUDGET_DIR = join5(homedir4(), ".cache", "claude-dashboard");
@@ -3354,7 +3432,7 @@ async function loadBudgetState() {
   }
   const fresh = { date: today, dailyTotal: 0, sessions: {} };
   try {
-    const content = await readFile8(BUDGET_FILE, "utf-8");
+    const content = await readFile9(BUDGET_FILE, "utf-8");
     const state = JSON.parse(content);
     if (state.date !== today || !Number.isFinite(state.dailyTotal) || !state.sessions || typeof state.sessions !== "object") {
       return fresh;
@@ -3368,10 +3446,10 @@ async function loadBudgetState() {
 async function saveBudgetState(state) {
   try {
     if (!dirEnsured2) {
-      await mkdir4(BUDGET_DIR, { recursive: true });
+      await mkdir5(BUDGET_DIR, { recursive: true });
       dirEnsured2 = true;
     }
-    await writeFile4(BUDGET_FILE, JSON.stringify(state), "utf-8");
+    await writeFile5(BUDGET_FILE, JSON.stringify(state), "utf-8");
     budgetCache = state;
   } catch (error) {
     debugLog("budget", "Failed to save budget state", error);
@@ -3960,7 +4038,7 @@ async function loadConfig() {
     if (configCache?.mtime === mtime) {
       return configCache.config;
     }
-    const content = await readFile9(CONFIG_PATH, "utf-8");
+    const content = await readFile10(CONFIG_PATH, "utf-8");
     const userConfig = JSON.parse(content);
     const config = {
       ...DEFAULT_CONFIG,

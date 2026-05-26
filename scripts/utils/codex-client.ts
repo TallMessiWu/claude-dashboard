@@ -13,6 +13,7 @@ import path from 'path';
 import { NEGATIVE_CACHE_SECONDS, type CodexUsageLimits, type CacheEntry } from '../types.js';
 import { hashToken } from './hash.js';
 import { VERSION } from '../version.js';
+import { loadFileCache, saveFileCache, fileCachePath } from './file-cache.js';
 import { debugLog } from './debug.js';
 
 const API_TIMEOUT_MS = 5000;
@@ -273,6 +274,7 @@ export async function fetchCodexUsage(ttlSeconds: number = 60): Promise<CodexUsa
   }
 
   const tokenHash = hashToken(auth.accessToken);
+  const cacheFile = fileCachePath(`codex-usage-${tokenHash}.json`);
 
   // Check memory cache (includes negative cache entries)
   const cached = codexCacheMap.get(tokenHash);
@@ -288,6 +290,14 @@ export async function fetchCodexUsage(ttlSeconds: number = 60): Promise<CodexUsa
     }
   }
 
+  // Check file cache (shared across processes — narrows multi-session stampede)
+  const fromFile = await loadFileCache<CodexUsageLimits>(cacheFile, ttlSeconds);
+  if (fromFile) {
+    debugLog('codex', 'file cache hit');
+    codexCacheMap.set(tokenHash, { data: fromFile.data, timestamp: fromFile.timestamp });
+    return fromFile.data;
+  }
+
   // Check pending request
   const pending = pendingRequests.get(tokenHash);
   if (pending) {
@@ -300,7 +310,10 @@ export async function fetchCodexUsage(ttlSeconds: number = 60): Promise<CodexUsa
 
   try {
     const result = await requestPromise;
-    if (result) return result;
+    if (result) {
+      await saveFileCache(cacheFile, result);
+      return result;
+    }
 
     // API failed - set negative cache to prevent rapid retries
     debugLog('codex', `Setting negative cache for ${NEGATIVE_CACHE_SECONDS}s`);
@@ -316,7 +329,13 @@ export async function fetchCodexUsage(ttlSeconds: number = 60): Promise<CodexUsa
       return cached.data;
     }
 
-    // No file cache available for Codex — return null
+    // Stale file cache as last resort
+    const staleFile = await loadFileCache<CodexUsageLimits>(cacheFile, 3600);
+    if (staleFile) {
+      debugLog('codex', 'stale file cache fallback');
+      return staleFile.data;
+    }
+
     return null;
   } finally {
     pendingRequests.delete(tokenHash);

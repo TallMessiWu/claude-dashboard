@@ -13,6 +13,7 @@ import os from 'os';
 import path from 'path';
 import { NEGATIVE_CACHE_SECONDS, type GeminiUsageLimits, type CacheEntry } from '../types.js';
 import { hashToken } from './hash.js';
+import { loadFileCache, saveFileCache, fileCachePath } from './file-cache.js';
 import { VERSION } from '../version.js';
 import { debugLog } from './debug.js';
 
@@ -504,6 +505,7 @@ export async function fetchGeminiUsage(ttlSeconds: number = 60): Promise<GeminiU
   }
 
   const tokenHash = hashToken(credentials.accessToken);
+  const cacheFile = fileCachePath(`gemini-usage-${tokenHash}.json`);
 
   // Check memory cache (includes negative cache entries)
   const cached = geminiCacheMap.get(tokenHash);
@@ -520,6 +522,14 @@ export async function fetchGeminiUsage(ttlSeconds: number = 60): Promise<GeminiU
     }
   }
 
+  // Check file cache (shared across processes — narrows multi-session stampede)
+  const fromFile = await loadFileCache<GeminiUsageLimits>(cacheFile, ttlSeconds);
+  if (fromFile) {
+    debugLog('gemini', 'file cache hit');
+    geminiCacheMap.set(tokenHash, { data: fromFile.data, timestamp: fromFile.timestamp });
+    return fromFile.data;
+  }
+
   // Check pending request
   const pending = pendingRequests.get(tokenHash);
   if (pending) {
@@ -532,7 +542,10 @@ export async function fetchGeminiUsage(ttlSeconds: number = 60): Promise<GeminiU
 
   try {
     const result = await requestPromise;
-    if (result) return result;
+    if (result) {
+      await saveFileCache(cacheFile, result);
+      return result;
+    }
 
     // API failed - set negative cache to prevent rapid retries
     debugLog('gemini', `Setting negative cache for ${NEGATIVE_CACHE_SECONDS}s`);
@@ -548,7 +561,13 @@ export async function fetchGeminiUsage(ttlSeconds: number = 60): Promise<GeminiU
       return cached.data;
     }
 
-    // No file cache available for Gemini — return null
+    // Stale file cache as last resort
+    const staleFile = await loadFileCache<GeminiUsageLimits>(cacheFile, 3600);
+    if (staleFile) {
+      debugLog('gemini', 'stale file cache fallback');
+      return staleFile.data;
+    }
+
     return null;
   } finally {
     pendingRequests.delete(tokenHash);
