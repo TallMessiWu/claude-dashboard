@@ -10,6 +10,7 @@
  * per TTL window across all processes." Multi-session users no longer pay N×
  * API cost on every restart.
  *
+ * @handbook 4.7-cross-process-file-cache
  * @tested scripts/__tests__/file-cache.test.ts
  */
 import { readFile, writeFile, mkdir } from 'fs/promises';

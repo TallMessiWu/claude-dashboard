@@ -3,6 +3,7 @@
  * Fetches usage quota from z.ai or ZHIPU API
  * @handbook 7.1-common-api-pattern
  * @handbook 4.2-request-deduplication
+ * @handbook 4.7-cross-process-file-cache
  * @tested scripts/__tests__/zai-api-client.test.ts
  */
 

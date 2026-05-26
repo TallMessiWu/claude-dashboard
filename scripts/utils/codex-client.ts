@@ -3,6 +3,7 @@
  * Fetches usage limits from ChatGPT backend API
  * @handbook 7.1-common-api-pattern
  * @handbook 4.2-request-deduplication
+ * @handbook 4.7-cross-process-file-cache
  * @tested scripts/__tests__/widgets.test.ts
  * @tested scripts/__tests__/codex-client.test.ts
  */
