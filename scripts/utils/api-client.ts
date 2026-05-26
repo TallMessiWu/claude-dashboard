@@ -3,24 +3,30 @@
  * @handbook 4.1-three-tier-cache
  * @handbook 4.2-request-deduplication
  * @handbook 4.3-429-retry
+ * @handbook 4.7-cross-process-file-cache
  * @handbook 7.1-common-api-pattern
  * @tested scripts/__tests__/api-client.test.ts
  */
-import { readFile, writeFile, mkdir, readdir, stat, unlink } from 'fs/promises';
+import { readdir, stat, unlink } from 'fs/promises';
 import { execFile } from 'child_process';
-import os from 'os';
 import path from 'path';
 import { NEGATIVE_CACHE_SECONDS, type UsageLimits, type CacheEntry } from '../types.js';
 import { getCredentials } from './credentials.js';
 import { hashToken } from './hash.js';
 import { VERSION } from '../version.js';
 import { debugLog } from './debug.js';
+import {
+  loadFileCache as loadFileCacheGeneric,
+  saveFileCache as saveFileCacheGeneric,
+  fileCachePath,
+  FILE_CACHE_DIR,
+  STALE_CACHE_TTL_SECONDS,
+} from './file-cache.js';
 
 const API_URL = 'https://api.anthropic.com/api/oauth/usage';
 const API_TIMEOUT_MS = 5000;
 const MAX_RETRY_AFTER_MS = 10000;
-const STALE_FALLBACK_SECONDS = 3600;
-const CACHE_DIR = path.join(os.homedir(), '.cache', 'claude-dashboard');
+const STALE_FALLBACK_SECONDS = STALE_CACHE_TTL_SECONDS;
 const CACHE_CLEANUP_AGE_SECONDS = 3600;
 const CLEANUP_INTERVAL_MS = 3600000;
 
@@ -45,27 +51,12 @@ let lastTokenHash: string | null = null;
  */
 let lastCleanupTime = 0;
 
-/** Track whether CACHE_DIR has been created */
-let dirEnsured = false;
-
 /**
- * Ensure cache directory exists with secure permissions
- */
-async function ensureCacheDir(): Promise<void> {
-  if (dirEnsured) return;
-  try {
-    await mkdir(CACHE_DIR, { recursive: true, mode: 0o700 });
-    dirEnsured = true;
-  } catch {
-    // Directory may already exist or creation failed
-  }
-}
-
-/**
- * Get cache file path for a specific token hash
+ * Get cache file path for a specific token hash.
+ * Delegates path composition to the shared file-cache utility.
  */
 function getCacheFilePath(tokenHash: string): string {
-  return path.join(CACHE_DIR, `cache-${tokenHash}.json`);
+  return fileCachePath(`cache-${tokenHash}.json`);
 }
 
 /**
@@ -321,19 +312,7 @@ async function loadFileCacheRaw(
   tokenHash: string,
   ttlSeconds: number
 ): Promise<{ data: UsageLimits; timestamp: number } | null> {
-  try {
-    const cacheFile = getCacheFilePath(tokenHash);
-    const raw = await readFile(cacheFile, 'utf-8');
-    const content = JSON.parse(raw);
-    const ageSeconds = (Date.now() - content.timestamp) / 1000;
-
-    if (ageSeconds < ttlSeconds) {
-      return { data: content.data as UsageLimits, timestamp: content.timestamp };
-    }
-    return null;
-  } catch {
-    return null;
-  }
+  return loadFileCacheGeneric<UsageLimits>(getCacheFilePath(tokenHash), ttlSeconds);
 }
 
 /**
@@ -348,23 +327,9 @@ async function loadFileCache(tokenHash: string, ttlSeconds: number): Promise<Usa
  * Save cache to file for specific token
  */
 async function saveFileCache(tokenHash: string, data: UsageLimits): Promise<void> {
-  try {
-    await ensureCacheDir();
-    const cacheFile = getCacheFilePath(tokenHash);
-    await writeFile(
-      cacheFile,
-      JSON.stringify({
-        data,
-        timestamp: Date.now(),
-      }),
-      { mode: 0o600 }
-    );
-
-    // Probabilistically clean up old cache files (fire-and-forget)
-    cleanupExpiredCache().catch(() => {});
-  } catch {
-    // Ignore cache write errors
-  }
+  await saveFileCacheGeneric(getCacheFilePath(tokenHash), data);
+  // Probabilistically clean up old cache files (fire-and-forget)
+  cleanupExpiredCache().catch(() => {});
 }
 
 /**
@@ -388,14 +353,14 @@ async function cleanupExpiredCache(): Promise<void> {
   lastCleanupTime = now;
 
   try {
-    const files = await readdir(CACHE_DIR);
+    const files = await readdir(FILE_CACHE_DIR);
 
     for (const file of files) {
       if (!file.startsWith('cache-') || !file.endsWith('.json')) {
         continue;
       }
 
-      const filePath = path.join(CACHE_DIR, file);
+      const filePath = path.join(FILE_CACHE_DIR, file);
 
       try {
         const fileStat = await stat(filePath);
