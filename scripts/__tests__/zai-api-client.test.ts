@@ -121,6 +121,7 @@ describe('zai-api-client', () => {
         saveFileCache: vi.fn(),
         fileCachePath: (name: string) => `/tmp/${name}`,
         FILE_CACHE_DIR: '/tmp',
+        STALE_CACHE_TTL_SECONDS: 3600,
       }));
 
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
@@ -134,6 +135,43 @@ describe('zai-api-client', () => {
 
       expect(fetchSpy).not.toHaveBeenCalled();
       expect(result).toEqual(sample);
+    });
+
+    it('writes to file cache after successful API fetch', async () => {
+      const saveSpy = vi.fn().mockResolvedValue(undefined);
+
+      vi.doMock('../utils/file-cache.js', () => ({
+        loadFileCache: vi.fn().mockResolvedValue(null),
+        saveFileCache: saveSpy,
+        fileCachePath: (name: string) => `/tmp/${name}`,
+        FILE_CACHE_DIR: '/tmp',
+        STALE_CACHE_TTL_SECONDS: 3600,
+      }));
+
+      const apiResponse = {
+        data: {
+          limits: [
+            { type: 'TOKENS_LIMIT', percentage: 25, nextResetTime: Date.now() + 3_600_000 },
+            { type: 'TIME_LIMIT', percentage: 10, nextResetTime: Date.now() + 30 * 86_400_000 },
+          ],
+        },
+      };
+
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify(apiResponse), { status: 200 })
+      );
+
+      const { fetchZaiUsage, clearZaiCache } = await import('../utils/zai-api-client.js');
+      clearZaiCache();
+
+      const result = await fetchZaiUsage();
+
+      expect(saveSpy).toHaveBeenCalledTimes(1);
+      expect(saveSpy).toHaveBeenCalledWith(
+        expect.stringContaining('zai-usage-'),
+        expect.objectContaining({ tokensPercent: 25, mcpPercent: 10 })
+      );
+      expect(result).toMatchObject({ tokensPercent: 25, mcpPercent: 10 });
     });
   });
 });
