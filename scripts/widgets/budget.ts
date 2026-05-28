@@ -7,6 +7,7 @@
 import type { Widget } from './base.js';
 import type { WidgetContext, BudgetData } from '../types.js';
 import { colorize, getTheme } from '../utils/colors.js';
+import { ICON } from '../utils/emoji.js';
 import { formatCost } from '../utils/formatters.js';
 import { recordCostAndGetDaily } from '../utils/budget.js';
 
@@ -41,13 +42,13 @@ export const budgetWidget: Widget<BudgetData> = {
 
     if (data.utilization >= DANGER_THRESHOLD) {
       color = theme.danger;
-      icon = '🚨';
+      icon = ICON.alarm;
     } else if (data.utilization >= WARNING_THRESHOLD) {
       color = theme.warning;
-      icon = '⚠️';
+      icon = ICON.warning;
     } else {
       color = theme.safe;
-      icon = '💵';
+      icon = ICON.banknote;
     }
 
     return `${icon} ${colorize(`${formatCost(data.dailyTotal)}`, color)} / ${colorize(formatCost(data.dailyBudget), theme.secondary)} ${colorize(`(${percent}%)`, color)}`;

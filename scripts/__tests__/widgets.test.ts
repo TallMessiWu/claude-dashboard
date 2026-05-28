@@ -72,6 +72,7 @@ import { vimModeWidget } from '../widgets/vim-mode.js';
 import { apiDurationWidget } from '../widgets/api-duration.js';
 import { peakHoursWidget, isPeakTime, getMinutesToTransition } from '../widgets/peak-hours.js';
 import { tagStatusWidget, clearTagCacheForTest } from '../widgets/tag-status.js';
+import { ICON } from '../utils/emoji.js';
 import * as codexClient from '../utils/codex-client.js';
 import * as zaiClient from '../utils/zai-api-client.js';
 import * as historyParser from '../utils/history-parser.js';
@@ -2399,21 +2400,21 @@ describe('widgets', () => {
       const ctx = createContext();
       const data = { agentName: 'my-coder', agentType: 'code-explorer' };
       const result = agentModeWidget.render(data, ctx);
-      expect(result).toContain('👤 my-coder');
-      expect(result).toContain('🤖 code-explorer');
+      expect(result).toContain(`${ICON.person} my-coder`);
+      expect(result).toContain(`${ICON.robot} code-explorer`);
       expect(result).toContain('·');
     });
 
     it('should render only name when type is absent', () => {
       const ctx = createContext();
       const result = agentModeWidget.render({ agentName: 'solo' }, ctx);
-      expect(result).toBe('👤 solo');
+      expect(result).toBe(`${ICON.person} solo`);
     });
 
     it('should render only type when name is absent', () => {
       const ctx = createContext();
       const result = agentModeWidget.render({ agentType: 'code-explorer' }, ctx);
-      expect(result).toBe('🤖 code-explorer');
+      expect(result).toBe(`${ICON.robot} code-explorer`);
     });
 
     it('should return null when agent.name trims to empty string', async () => {

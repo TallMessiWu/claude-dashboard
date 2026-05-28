@@ -7,6 +7,7 @@
 import type { Widget } from './base.js';
 import type { WidgetContext, TokenBreakdownData } from '../types.js';
 import { colorize, getTheme } from '../utils/colors.js';
+import { ICON } from '../utils/emoji.js';
 import { formatTokens } from '../utils/formatters.js';
 
 export const tokenBreakdownWidget: Widget<TokenBreakdownData> = {
@@ -39,6 +40,6 @@ export const tokenBreakdownWidget: Widget<TokenBreakdownData> = {
     if (data.outputTokens > 0) parts.push(`${colorize('Out', theme.accent)} ${formatTokens(data.outputTokens)}`);
     if (data.cacheWriteTokens > 0) parts.push(`${colorize('W', theme.warning)} ${formatTokens(data.cacheWriteTokens)}`);
     if (data.cacheReadTokens > 0) parts.push(`${colorize('R', theme.safe)} ${formatTokens(data.cacheReadTokens)}`);
-    return `📊 ${parts.join(colorize(' · ', theme.secondary))}`;
+    return `${ICON.chart} ${parts.join(colorize(' · ', theme.secondary))}`;
   },
 };

@@ -9,6 +9,7 @@
 import type { Widget } from './base.js';
 import type { WidgetContext, SlashCommandData } from '../types.js';
 import { colorize, getTheme } from '../utils/colors.js';
+import { ICON } from '../utils/emoji.js';
 import { getTranscript, getActiveSlashCommand } from '../utils/transcript-parser.js';
 
 export const slashCommandWidget: Widget<SlashCommandData> = {
@@ -22,6 +23,6 @@ export const slashCommandWidget: Widget<SlashCommandData> = {
   },
 
   render(data: SlashCommandData, _ctx: WidgetContext): string {
-    return `${colorize('🎯', getTheme().warning)} ${data.name}`;
+    return `${colorize(ICON.target, getTheme().warning)} ${data.name}`;
   },
 };

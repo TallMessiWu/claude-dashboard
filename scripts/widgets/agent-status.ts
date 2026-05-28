@@ -7,6 +7,7 @@
 import type { Widget } from './base.js';
 import type { WidgetContext, AgentStatusData } from '../types.js';
 import { colorize, getTheme } from '../utils/colors.js';
+import { ICON } from '../utils/emoji.js';
 import { getTranscript, extractAgentStatus } from '../utils/transcript-parser.js';
 import { truncate } from '../utils/formatters.js';
 
@@ -45,6 +46,6 @@ export const agentStatusWidget: Widget<AgentStatusData> = {
       : activeAgent.name;
     const more = data.active.length > 1 ? ` +${data.active.length - 1}` : '';
 
-    return `${colorize('🤖', theme.info)} ${t.widgets.agent}: ${agentText}${more}`;
+    return `${colorize(ICON.robot, theme.info)} ${t.widgets.agent}: ${agentText}${more}`;
   },
 };

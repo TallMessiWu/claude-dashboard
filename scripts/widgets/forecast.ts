@@ -7,6 +7,7 @@
 import type { Widget } from './base.js';
 import type { WidgetContext, ForecastData } from '../types.js';
 import { colorize, getTheme } from '../utils/colors.js';
+import { ICON } from '../utils/emoji.js';
 import { formatCost } from '../utils/formatters.js';
 import { getSessionElapsedMinutes } from '../utils/session.js';
 
@@ -44,6 +45,6 @@ export const forecastWidget: Widget<ForecastData> = {
       hourlyColor = theme.safe;
     }
 
-    return `📈 ${colorize(formatCost(data.currentCost), theme.accent)} → ${colorize(`~${formatCost(data.hourlyCost)}/h`, hourlyColor)}`;
+    return `${ICON.chartUp} ${colorize(formatCost(data.currentCost), theme.accent)} → ${colorize(`~${formatCost(data.hourlyCost)}/h`, hourlyColor)}`;
   },
 };

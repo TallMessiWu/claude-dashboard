@@ -455,6 +455,36 @@ function getSeparator() {
   return cachedSeparator;
 }
 
+// scripts/utils/emoji.ts
+var ICON = {
+  warning: "\u26A0\uFE0F",
+  gear: "\u2699\uFE0F",
+  alarm: "\u{1F6A8}\uFE0F",
+  stopwatch: "\u23F1\uFE0F",
+  hourglass: "\u23F3\uFE0F",
+  zap: "\u26A1\uFE0F",
+  banknote: "\u{1F4B5}\uFE0F",
+  moneyBag: "\u{1F4B0}\uFE0F",
+  chartUp: "\u{1F4C8}\uFE0F",
+  robot: "\u{1F916}\uFE0F",
+  person: "\u{1F464}\uFE0F",
+  folder: "\u{1F4C1}\uFE0F",
+  tree: "\u{1F333}\uFE0F",
+  label: "\u{1F3F7}\uFE0F",
+  package: "\u{1F4E6}\uFE0F",
+  chart: "\u{1F4CA}\uFE0F",
+  blueDiamond: "\u{1F537}\uFE0F",
+  gem: "\u{1F48E}\uFE0F",
+  orangeCircle: "\u{1F7E0}\uFE0F",
+  greenCircle: "\u{1F7E2}\uFE0F",
+  yellowCircle: "\u{1F7E1}\uFE0F",
+  redCircle: "\u{1F534}\uFE0F",
+  fire: "\u{1F525}\uFE0F",
+  speech: "\u{1F4AC}\uFE0F",
+  target: "\u{1F3AF}\uFE0F",
+  key: "\u{1F511}\uFE0F"
+};
+
 // scripts/utils/api-client.ts
 import { execFile as execFile2 } from "child_process";
 
@@ -1140,7 +1170,7 @@ var modelWidget = {
   },
   render(data) {
     const shortName = shortenModelName(data.displayName);
-    const icon = isZaiProvider() ? "\u{1F7E0}" : "\u25C6";
+    const icon = isZaiProvider() ? ICON.orangeCircle : "\u25C6";
     const supportsEffort = shortName === "Opus" || shortName === "Sonnet";
     const effortSuffix = supportsEffort ? `(${data.effortLevel[0].toUpperCase()})` : "";
     const fastIndicator = shortName === "Opus" && data.fastMode ? " \u21AF" : "";
@@ -1247,7 +1277,7 @@ var costWidget = {
 // scripts/widgets/rate-limit.ts
 function renderRateLimit(data, ctx, labelKey) {
   if (data.isError) {
-    return colorize("\u26A0\uFE0F", getTheme().warning);
+    return colorize(ICON.warning, getTheme().warning);
   }
   const { translations: t } = ctx;
   const color = getColorForPercent(data.utilization);
@@ -1442,7 +1472,7 @@ var projectInfoWidget = {
   render(data, _ctx) {
     const theme = getTheme();
     const parts = [];
-    const dirDisplay = data.subPath ? `\u{1F4C1} ${data.dirName} (${data.subPath})` : `\u{1F4C1} ${data.dirName}`;
+    const dirDisplay = data.subPath ? `${ICON.folder} ${data.dirName} (${data.subPath})` : `${ICON.folder} ${data.dirName}`;
     parts.push(colorize(dirDisplay, theme.folder));
     if (data.gitBranch) {
       let branchStr = data.gitBranch;
@@ -1456,7 +1486,7 @@ var projectInfoWidget = {
       parts.push(colorize(branchDisplay, theme.branch));
     }
     if (data.worktreeName) {
-      parts.push(colorize(`\u{1F333} wt:${data.worktreeName}`, theme.info));
+      parts.push(colorize(`${ICON.tree} wt:${data.worktreeName}`, theme.info));
     }
     return parts.join(" ");
   }
@@ -1711,7 +1741,7 @@ var sessionDurationWidget = {
   render(data, ctx) {
     const { translations: t } = ctx;
     const duration = formatDuration(data.elapsedMs, t.time);
-    return colorize(`\u23F1 ${duration}`, getTheme().secondary);
+    return colorize(`${ICON.stopwatch} ${duration}`, getTheme().secondary);
   }
 };
 
@@ -2039,7 +2069,7 @@ var toolActivityWidget = {
     }
     const runningNames = data.running.slice(0, 2).map((r) => r.target ? `${r.name}(${r.target})` : r.name).join(", ");
     const more = data.running.length > 2 ? ` +${data.running.length - 2}` : "";
-    return `${colorize("\u2699\uFE0F", theme.warning)} ${runningNames}${more} (${data.completed} ${t.widgets.done})`;
+    return `${colorize(ICON.gear, theme.warning)} ${runningNames}${more} (${data.completed} ${t.widgets.done})`;
   }
 };
 
@@ -2069,7 +2099,7 @@ var agentStatusWidget = {
     const activeAgent = data.active[0];
     const agentText = activeAgent.description ? `${activeAgent.name}: ${truncate(activeAgent.description, 20)}` : activeAgent.name;
     const more = data.active.length > 1 ? ` +${data.active.length - 1}` : "";
-    return `${colorize("\u{1F916}", theme.info)} ${t.widgets.agent}: ${agentText}${more}`;
+    return `${colorize(ICON.robot, theme.info)} ${t.widgets.agent}: ${agentText}${more}`;
   }
 };
 
@@ -2131,7 +2161,7 @@ var burnRateWidget = {
     return { tokensPerMinute };
   },
   render(data, _ctx) {
-    return `\u{1F525} ${formatTokens(Math.round(data.tokensPerMinute))}/min`;
+    return `${ICON.fire} ${formatTokens(Math.round(data.tokensPerMinute))}/min`;
   }
 };
 
@@ -2164,7 +2194,7 @@ var depletionTimeWidget = {
   render(data, ctx) {
     const { translations: t } = ctx;
     const duration = formatDuration(data.minutesToLimit * 60 * 1e3, t.time);
-    return colorize(`\u23F3 ~${duration} ${t.widgets.toLimit} ${data.limitType}`, getTheme().warning);
+    return colorize(`${ICON.hourglass} ~${duration} ${t.widgets.toLimit} ${data.limitType}`, getTheme().warning);
   }
 };
 
@@ -2189,7 +2219,7 @@ var cacheHitWidget = {
   },
   render(data) {
     const color = getColorForPercent(100 - data.hitPercentage);
-    return `\u{1F4E6} ${colorize(`${data.hitPercentage}%`, color)}`;
+    return `${ICON.package} ${colorize(`${data.hitPercentage}%`, color)}`;
   }
 };
 
@@ -2486,9 +2516,9 @@ var codexUsageWidget = {
     const { translations: t } = ctx;
     const theme = getTheme();
     const parts = [];
-    parts.push(`${colorize("\u{1F537}", theme.info)} ${data.model}`);
+    parts.push(`${colorize(ICON.blueDiamond, theme.info)} ${data.model}`);
     if (data.isError) {
-      parts.push(colorize("\u26A0\uFE0F", theme.warning));
+      parts.push(colorize(ICON.warning, theme.warning));
     } else {
       if (data.primaryPercent !== null) {
         parts.push(formatRateLimit(t.labels["5h"], data.primaryPercent, data.primaryResetAt, ctx));
@@ -2964,9 +2994,9 @@ var geminiUsageWidget = {
   render(data, ctx) {
     const theme = getTheme();
     const parts = [];
-    parts.push(`${colorize("\u{1F48E}", theme.info)} ${data.model}`);
+    parts.push(`${colorize(ICON.gem, theme.info)} ${data.model}`);
     if (data.isError) {
-      parts.push(colorize("\u26A0\uFE0F", theme.warning));
+      parts.push(colorize(ICON.warning, theme.warning));
     } else if (data.usedPercent !== null) {
       parts.push(formatUsage(data.usedPercent, data.resetAt, ctx));
     }
@@ -3001,10 +3031,10 @@ var geminiUsageAllWidget = {
   render(data, ctx) {
     const theme = getTheme();
     if (data.isError) {
-      return `${colorize("\u{1F48E}", theme.info)} Gemini ${colorize("\u26A0\uFE0F", theme.warning)}`;
+      return `${colorize(ICON.gem, theme.info)} Gemini ${colorize(ICON.warning, theme.warning)}`;
     }
     if (data.buckets.length === 0) {
-      return `${colorize("\u{1F48E}", theme.info)} Gemini ${colorize("--", theme.secondary)}`;
+      return `${colorize(ICON.gem, theme.info)} Gemini ${colorize("--", theme.secondary)}`;
     }
     const parts = data.buckets.map((bucket) => {
       const modelShort = bucket.modelId.replace("gemini-", "");
@@ -3013,7 +3043,7 @@ var geminiUsageAllWidget = {
       }
       return `${colorize(modelShort, theme.secondary)}: ${colorize("--", theme.secondary)}`;
     });
-    return `${colorize("\u{1F48E}", theme.info)} ${parts.join(" \u2502 ")}`;
+    return `${colorize(ICON.gem, theme.info)} ${parts.join(" \u2502 ")}`;
   }
 };
 
@@ -3220,9 +3250,9 @@ var zaiUsageWidget = {
     const { translations: t } = ctx;
     const theme = getTheme();
     const parts = [];
-    parts.push(`\u{1F7E0} ${data.model}`);
+    parts.push(`${ICON.orangeCircle} ${data.model}`);
     if (data.isError) {
-      parts.push(colorize("\u26A0\uFE0F", theme.warning));
+      parts.push(colorize(ICON.warning, theme.warning));
     } else {
       if (data.tokensPercent !== null) {
         let tokenPart = `${t.labels["5h"]}: ${formatPercent(data.tokensPercent)}`;
@@ -3258,7 +3288,7 @@ var sessionIdWidget = {
   name: "Session ID (Short)",
   getData: getSessionIdData,
   render(data) {
-    return colorize(`\u{1F511} ${data.shortId}`, getTheme().secondary);
+    return colorize(`${ICON.key} ${data.shortId}`, getTheme().secondary);
   }
 };
 var sessionIdFullWidget = {
@@ -3266,7 +3296,7 @@ var sessionIdFullWidget = {
   name: "Session ID (Full)",
   getData: getSessionIdData,
   render(data) {
-    return colorize(`\u{1F511} ${data.sessionId}`, getTheme().secondary);
+    return colorize(`${ICON.key} ${data.sessionId}`, getTheme().secondary);
   }
 };
 
@@ -3300,7 +3330,7 @@ var tokenBreakdownWidget = {
       parts.push(`${colorize("W", theme.warning)} ${formatTokens(data.cacheWriteTokens)}`);
     if (data.cacheReadTokens > 0)
       parts.push(`${colorize("R", theme.safe)} ${formatTokens(data.cacheReadTokens)}`);
-    return `\u{1F4CA} ${parts.join(colorize(" \xB7 ", theme.secondary))}`;
+    return `${ICON.chart} ${parts.join(colorize(" \xB7 ", theme.secondary))}`;
   }
 };
 
@@ -3335,13 +3365,13 @@ var performanceWidget = {
     let badge;
     let color;
     if (data.score >= GOOD_THRESHOLD) {
-      badge = "\u{1F7E2}";
+      badge = ICON.greenCircle;
       color = theme.safe;
     } else if (data.score >= OK_THRESHOLD) {
-      badge = "\u{1F7E1}";
+      badge = ICON.yellowCircle;
       color = theme.warning;
     } else {
-      badge = "\u{1F534}";
+      badge = ICON.redCircle;
       color = theme.danger;
     }
     return `${badge} ${colorize(`${data.score}%`, color)}`;
@@ -3378,7 +3408,7 @@ var forecastWidget = {
     } else {
       hourlyColor = theme.safe;
     }
-    return `\u{1F4C8} ${colorize(formatCost(data.currentCost), theme.accent)} \u2192 ${colorize(`~${formatCost(data.hourlyCost)}/h`, hourlyColor)}`;
+    return `${ICON.chartUp} ${colorize(formatCost(data.currentCost), theme.accent)} \u2192 ${colorize(`~${formatCost(data.hourlyCost)}/h`, hourlyColor)}`;
   }
 };
 
@@ -3476,13 +3506,13 @@ var budgetWidget = {
     let icon;
     if (data.utilization >= DANGER_THRESHOLD) {
       color = theme.danger;
-      icon = "\u{1F6A8}";
+      icon = ICON.alarm;
     } else if (data.utilization >= WARNING_THRESHOLD) {
       color = theme.warning;
-      icon = "\u26A0\uFE0F";
+      icon = ICON.warning;
     } else {
       color = theme.safe;
-      icon = "\u{1F4B5}";
+      icon = ICON.banknote;
     }
     return `${icon} ${colorize(`${formatCost(data.dailyTotal)}`, color)} / ${colorize(formatCost(data.dailyBudget), theme.secondary)} ${colorize(`(${percent}%)`, color)}`;
   }
@@ -3575,7 +3605,7 @@ var tokenSpeedWidget = {
     return { tokensPerSecond };
   },
   render(data, _ctx) {
-    return colorize(`\u26A1 ${Math.round(data.tokensPerSecond)} tok/s`, getTheme().accent);
+    return colorize(`${ICON.zap} ${Math.round(data.tokensPerSecond)} tok/s`, getTheme().accent);
   }
 };
 
@@ -3610,7 +3640,7 @@ var todayCostWidget = {
   },
   render(data, ctx) {
     const { translations: t } = ctx;
-    return colorize(`\u{1F4B0} ${t.widgets.todayCost}: ${formatCost(data.dailyTotal)}`, getTheme().secondary);
+    return colorize(`${ICON.moneyBag} ${t.widgets.todayCost}: ${formatCost(data.dailyTotal)}`, getTheme().secondary);
   }
 };
 
@@ -3684,7 +3714,7 @@ var lastPromptWidget = {
   render(data, _ctx) {
     const theme = getTheme();
     const timeStr = new Date(data.timestamp).toTimeString().slice(0, 5);
-    return `\u{1F4AC} ${colorize(timeStr, theme.secondary)} ${truncate(data.text, 60)}`;
+    return `${ICON.speech} ${colorize(timeStr, theme.secondary)} ${truncate(data.text, 60)}`;
   }
 };
 
@@ -3844,7 +3874,7 @@ var tagStatusWidget = {
   },
   render(data, _ctx) {
     const theme = getTheme();
-    const icon = colorize("\u{1F3F7}", theme.info);
+    const icon = colorize(ICON.label, theme.info);
     const parts = data.tags.map(({ name, count }) => {
       const nameColored = colorize(name, theme.branch);
       if (count === 0)
@@ -3866,7 +3896,7 @@ var slashCommandWidget = {
     return getActiveSlashCommand(transcript);
   },
   render(data, _ctx) {
-    return `${colorize("\u{1F3AF}", getTheme().warning)} ${data.name}`;
+    return `${colorize(ICON.target, getTheme().warning)} ${data.name}`;
   }
 };
 
@@ -3887,9 +3917,9 @@ var agentModeWidget = {
   render(data) {
     const parts = [];
     if (data.agentName)
-      parts.push(`\u{1F464} ${data.agentName}`);
+      parts.push(`${ICON.person} ${data.agentName}`);
     if (data.agentType)
-      parts.push(`\u{1F916} ${data.agentType}`);
+      parts.push(`${ICON.robot} ${data.agentType}`);
     return parts.join(" \xB7 ");
   }
 };
@@ -4050,7 +4080,7 @@ async function main() {
   const translations = getTranslations(config);
   const stdin = await readStdin();
   if (!stdin) {
-    console.log(colorize("\u26A0\uFE0F", COLORS.yellow));
+    console.log(colorize(ICON.warning, COLORS.yellow));
     return;
   }
   const stdinLimits = parseStdinRateLimits(stdin);
@@ -4073,5 +4103,5 @@ async function main() {
   console.log(output);
 }
 main().catch(() => {
-  console.log(colorize("\u26A0\uFE0F", COLORS.yellow));
+  console.log(colorize(ICON.warning, COLORS.yellow));
 });

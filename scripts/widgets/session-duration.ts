@@ -7,6 +7,7 @@
 import type { Widget } from './base.js';
 import type { WidgetContext, SessionDurationData } from '../types.js';
 import { colorize, getTheme } from '../utils/colors.js';
+import { ICON } from '../utils/emoji.js';
 import { formatDuration } from '../utils/formatters.js';
 import { getSessionElapsedMs } from '../utils/session.js';
 
@@ -31,6 +32,6 @@ export const sessionDurationWidget: Widget<SessionDurationData> = {
   render(data: SessionDurationData, ctx: WidgetContext): string {
     const { translations: t } = ctx;
     const duration = formatDuration(data.elapsedMs, t.time);
-    return colorize(`⏱ ${duration}`, getTheme().secondary);
+    return colorize(`${ICON.stopwatch} ${duration}`, getTheme().secondary);
   },
 };

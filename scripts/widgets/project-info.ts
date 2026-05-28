@@ -10,6 +10,7 @@ import { basename, relative } from 'path';
 import type { Widget } from './base.js';
 import type { WidgetContext, ProjectInfoData } from '../types.js';
 import { colorize, getTheme } from '../utils/colors.js';
+import { ICON } from '../utils/emoji.js';
 import { osc8Link } from '../utils/formatters.js';
 import { execGit } from '../utils/git.js';
 
@@ -176,8 +177,8 @@ export const projectInfoWidget: Widget<ProjectInfoData> = {
 
     // Directory name with folder icon, and subpath when CWD differs from project root
     const dirDisplay = data.subPath
-      ? `📁 ${data.dirName} (${data.subPath})`
-      : `📁 ${data.dirName}`;
+      ? `${ICON.folder} ${data.dirName} (${data.subPath})`
+      : `${ICON.folder} ${data.dirName}`;
     parts.push(colorize(dirDisplay, theme.folder));
 
     // Git branch in parentheses with ahead/behind indicators
@@ -201,7 +202,7 @@ export const projectInfoWidget: Widget<ProjectInfoData> = {
 
     // Worktree indicator (only in --worktree sessions)
     if (data.worktreeName) {
-      parts.push(colorize(`🌳 wt:${data.worktreeName}`, theme.info));
+      parts.push(colorize(`${ICON.tree} wt:${data.worktreeName}`, theme.info));
     }
 
     return parts.join(' ');

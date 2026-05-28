@@ -7,6 +7,7 @@
 import type { Widget } from './base.js';
 import type { WidgetContext, ToolActivityData } from '../types.js';
 import { colorize, getTheme } from '../utils/colors.js';
+import { ICON } from '../utils/emoji.js';
 import {
   getTranscript,
   getRunningTools,
@@ -44,6 +45,6 @@ export const toolActivityWidget: Widget<ToolActivityData> = {
       .join(', ');
     const more = data.running.length > 2 ? ` +${data.running.length - 2}` : '';
 
-    return `${colorize('⚙️', theme.warning)} ${runningNames}${more} (${data.completed} ${t.widgets.done})`;
+    return `${colorize(ICON.gear, theme.warning)} ${runningNames}${more} (${data.completed} ${t.widgets.done})`;
   },
 };

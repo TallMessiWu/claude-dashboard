@@ -14,6 +14,7 @@ import { fetchZaiUsage, isZaiInstalled, type ZaiUsageLimits } from './utils/zai-
 import { isZaiProvider } from './utils/provider.js';
 import { formatTimeRemaining } from './utils/formatters.js';
 import { getColorForPercent, colorize, COLORS } from './utils/colors.js';
+import { ICON } from './utils/emoji.js';
 import { getTranslationsByLang, detectSystemLanguage } from './utils/i18n.js';
 import type {
   UsageLimits,
@@ -80,7 +81,7 @@ function renderSection(
   }
 
   if (usage.error || !hasData) {
-    lines.push(`${label} ${colorize(`⚠️ ${t.checkUsage.errorFetching}`, COLORS.pastelYellow)}`);
+    lines.push(`${label} ${colorize(`${ICON.warning} ${t.checkUsage.errorFetching}`, COLORS.pastelYellow)}`);
     return lines;
   }
 

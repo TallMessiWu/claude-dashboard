@@ -14,6 +14,7 @@ import { homedir } from 'os';
 import type { Widget } from './base.js';
 import type { WidgetContext, ModelData, EffortLevel } from '../types.js';
 import { RESET, getTheme } from '../utils/colors.js';
+import { ICON } from '../utils/emoji.js';
 import { shortenModelName } from '../utils/formatters.js';
 import { isZaiProvider } from '../utils/provider.js';
 
@@ -96,7 +97,7 @@ export const modelWidget: Widget<ModelData> = {
 
   render(data: ModelData): string {
     const shortName = shortenModelName(data.displayName);
-    const icon = isZaiProvider() ? '🟠' : '◆';
+    const icon = isZaiProvider() ? ICON.orangeCircle : '◆';
 
     // Haiku excluded from effort badge
     const supportsEffort = shortName === 'Opus' || shortName === 'Sonnet';

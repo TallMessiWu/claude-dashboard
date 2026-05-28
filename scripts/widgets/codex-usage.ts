@@ -8,6 +8,7 @@
 import type { Widget } from './base.js';
 import type { WidgetContext, CodexUsageData } from '../types.js';
 import { getColorForPercent, colorize, getTheme } from '../utils/colors.js';
+import { ICON } from '../utils/emoji.js';
 import { isCodexInstalled, fetchCodexUsage } from '../utils/codex-client.js';
 import { formatTimeRemaining } from '../utils/formatters.js';
 import { debugLog } from '../utils/debug.js';
@@ -75,10 +76,10 @@ export const codexUsageWidget: Widget<CodexUsageData> = {
     const theme = getTheme();
     const parts: string[] = [];
 
-    parts.push(`${colorize('🔷', theme.info)} ${data.model}`);
+    parts.push(`${colorize(ICON.blueDiamond, theme.info)} ${data.model}`);
 
     if (data.isError) {
-      parts.push(colorize('⚠️', theme.warning));
+      parts.push(colorize(ICON.warning, theme.warning));
     } else {
       if (data.primaryPercent !== null) {
         parts.push(formatRateLimit(t.labels['5h'], data.primaryPercent, data.primaryResetAt, ctx));

@@ -1618,6 +1618,36 @@ function colorize(text, color) {
   return `${color}${text}${RESET}`;
 }
 
+// scripts/utils/emoji.ts
+var ICON = {
+  warning: "\u26A0\uFE0F",
+  gear: "\u2699\uFE0F",
+  alarm: "\u{1F6A8}\uFE0F",
+  stopwatch: "\u23F1\uFE0F",
+  hourglass: "\u23F3\uFE0F",
+  zap: "\u26A1\uFE0F",
+  banknote: "\u{1F4B5}\uFE0F",
+  moneyBag: "\u{1F4B0}\uFE0F",
+  chartUp: "\u{1F4C8}\uFE0F",
+  robot: "\u{1F916}\uFE0F",
+  person: "\u{1F464}\uFE0F",
+  folder: "\u{1F4C1}\uFE0F",
+  tree: "\u{1F333}\uFE0F",
+  label: "\u{1F3F7}\uFE0F",
+  package: "\u{1F4E6}\uFE0F",
+  chart: "\u{1F4CA}\uFE0F",
+  blueDiamond: "\u{1F537}\uFE0F",
+  gem: "\u{1F48E}\uFE0F",
+  orangeCircle: "\u{1F7E0}\uFE0F",
+  greenCircle: "\u{1F7E2}\uFE0F",
+  yellowCircle: "\u{1F7E1}\uFE0F",
+  redCircle: "\u{1F534}\uFE0F",
+  fire: "\u{1F525}\uFE0F",
+  speech: "\u{1F4AC}\uFE0F",
+  target: "\u{1F3AF}\uFE0F",
+  key: "\u{1F511}\uFE0F"
+};
+
 // locales/en.json
 var en_default = {
   model: {
@@ -1780,7 +1810,7 @@ function renderSection(name, usage, t, contentFn, hasData = true) {
     return lines;
   }
   if (usage.error || !hasData) {
-    lines.push(`${label} ${colorize(`\u26A0\uFE0F ${t.checkUsage.errorFetching}`, COLORS.pastelYellow)}`);
+    lines.push(`${label} ${colorize(`${ICON.warning} ${t.checkUsage.errorFetching}`, COLORS.pastelYellow)}`);
     return lines;
   }
   lines.push(`${label}`);

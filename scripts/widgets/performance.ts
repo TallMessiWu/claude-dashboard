@@ -7,6 +7,7 @@
 import type { Widget } from './base.js';
 import type { WidgetContext, PerformanceData } from '../types.js';
 import { colorize, getTheme } from '../utils/colors.js';
+import { ICON } from '../utils/emoji.js';
 import { getSessionElapsedMinutes } from '../utils/session.js';
 
 /**
@@ -54,13 +55,13 @@ export const performanceWidget: Widget<PerformanceData> = {
     let color: string;
 
     if (data.score >= GOOD_THRESHOLD) {
-      badge = '🟢';
+      badge = ICON.greenCircle;
       color = theme.safe;
     } else if (data.score >= OK_THRESHOLD) {
-      badge = '🟡';
+      badge = ICON.yellowCircle;
       color = theme.warning;
     } else {
-      badge = '🔴';
+      badge = ICON.redCircle;
       color = theme.danger;
     }
 

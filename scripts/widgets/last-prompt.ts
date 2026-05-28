@@ -8,6 +8,7 @@
 import type { Widget } from './base.js';
 import type { WidgetContext, LastPromptData } from '../types.js';
 import { colorize, getTheme } from '../utils/colors.js';
+import { ICON } from '../utils/emoji.js';
 import { truncate } from '../utils/formatters.js';
 import { getLastUserPrompt } from '../utils/history-parser.js';
 
@@ -25,6 +26,6 @@ export const lastPromptWidget: Widget<LastPromptData> = {
   render(data: LastPromptData, _ctx: WidgetContext): string {
     const theme = getTheme();
     const timeStr = new Date(data.timestamp).toTimeString().slice(0, 5);
-    return `💬 ${colorize(timeStr, theme.secondary)} ${truncate(data.text, 60)}`;
+    return `${ICON.speech} ${colorize(timeStr, theme.secondary)} ${truncate(data.text, 60)}`;
   },
 };
