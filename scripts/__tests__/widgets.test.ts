@@ -72,6 +72,7 @@ import { vimModeWidget } from '../widgets/vim-mode.js';
 import { apiDurationWidget } from '../widgets/api-duration.js';
 import { peakHoursWidget, isPeakTime, getMinutesToTransition } from '../widgets/peak-hours.js';
 import { tagStatusWidget, clearTagCacheForTest } from '../widgets/tag-status.js';
+import { ICON } from '../utils/emoji.js';
 import * as codexClient from '../utils/codex-client.js';
 import * as zaiClient from '../utils/zai-api-client.js';
 import * as historyParser from '../utils/history-parser.js';
@@ -513,7 +514,7 @@ describe('widgets', () => {
       const data = { dirName: 'my-project', gitBranch: 'main' };
       const result = projectInfoWidget.render(data, ctx);
 
-      expect(result).toContain('📁');
+      expect(result).toContain(ICON.folder);
       expect(result).toContain('my-project');
       expect(result).toContain('main');
     });
@@ -596,7 +597,7 @@ describe('widgets', () => {
       const data = { dirName: 'my-project', gitBranch: 'main', worktreeName: 'my-feature' };
       const result = projectInfoWidget.render(data, ctx);
 
-      expect(result).toContain('🌳');
+      expect(result).toContain(ICON.tree);
       expect(result).toContain('wt:my-feature');
     });
 
@@ -697,7 +698,7 @@ describe('widgets', () => {
 
       expect(result).toContain('Agent');
       expect(result).toContain('Explore');
-      expect(result).toContain('🤖');
+      expect(result).toContain(ICON.robot);
     });
 
     it('should truncate long descriptions', () => {
@@ -748,7 +749,7 @@ describe('widgets', () => {
       expect(result).toContain('Bash');
       expect(result).toContain('Read');
       expect(result).toContain('10');
-      expect(result).toContain('⚙️');
+      expect(result).toContain(ICON.gear);
     });
 
     it('should limit displayed running tools', () => {
@@ -832,7 +833,7 @@ describe('widgets', () => {
       const data = { tokensPerMinute: 5500 };
       const result = burnRateWidget.render(data, ctx);
 
-      expect(result).toContain('🔥');
+      expect(result).toContain(ICON.fire);
       expect(result).toContain('5.5K');
       expect(result).toContain('/min');
     });
@@ -930,7 +931,7 @@ describe('widgets', () => {
       const data = { hitPercentage: 67 };
       const result = cacheHitWidget.render(data, ctx);
 
-      expect(result).toContain('📦');
+      expect(result).toContain(ICON.package);
       expect(result).toContain('67%');
     });
   });
@@ -964,7 +965,7 @@ describe('widgets', () => {
       const data = { minutesToLimit: 120, limitType: '5h' as const };
       const result = depletionTimeWidget.render(data, ctx);
 
-      expect(result).toContain('⏳');
+      expect(result).toContain(ICON.hourglass);
       expect(result).toContain('2h');
       expect(result).toContain('5h');
     });
@@ -1053,7 +1054,7 @@ describe('widgets', () => {
       };
       const result = codexUsageWidget.render(data, ctx);
 
-      expect(result).toContain('🔷');
+      expect(result).toContain(ICON.blueDiamond);
       expect(result).toContain('gpt-5.2-codex');
       expect(result).toContain('5h:');
       expect(result).toContain('25%');
@@ -1089,7 +1090,7 @@ describe('widgets', () => {
       };
       const result = codexUsageWidget.render(data, ctx);
 
-      expect(result).toContain('🔷');
+      expect(result).toContain(ICON.blueDiamond);
       expect(result).toContain('o3');
       expect(result).not.toContain('5h:');
       expect(result).not.toContain('7d:');
@@ -1108,9 +1109,9 @@ describe('widgets', () => {
       };
       const result = codexUsageWidget.render(data, ctx);
 
-      expect(result).toContain('🔷');
+      expect(result).toContain(ICON.blueDiamond);
       expect(result).toContain('codex');
-      expect(result).toContain('⚠️');
+      expect(result).toContain(ICON.warning);
       expect(result).not.toContain('5h:');
       expect(result).not.toContain('7d:');
     });
@@ -1190,7 +1191,7 @@ describe('widgets', () => {
       };
       const result = geminiUsageWidget.render(data, ctx);
 
-      expect(result).toContain('💎');
+      expect(result).toContain(ICON.gem);
       expect(result).toContain('gemini-2.5-pro');
       expect(result).toContain('35%');
     });
@@ -1219,7 +1220,7 @@ describe('widgets', () => {
       };
       const result = geminiUsageWidget.render(data, ctx);
 
-      expect(result).toContain('💎');
+      expect(result).toContain(ICON.gem);
       expect(result).toContain('gemini-3-pro-preview');
       expect(result).not.toContain('%');
     });
@@ -1234,9 +1235,9 @@ describe('widgets', () => {
       };
       const result = geminiUsageWidget.render(data, ctx);
 
-      expect(result).toContain('💎');
+      expect(result).toContain(ICON.gem);
       expect(result).toContain('gemini');
-      expect(result).toContain('⚠️');
+      expect(result).toContain(ICON.warning);
     });
   });
 
@@ -1400,7 +1401,7 @@ describe('widgets', () => {
       const data = { elapsedMs: 3661000 }; // 1h 1m 1s
       const result = sessionDurationWidget.render(data, ctx);
 
-      expect(result).toContain('⏱');
+      expect(result).toContain(ICON.stopwatch);
       expect(result).toContain('1h');
     });
 
@@ -1835,7 +1836,7 @@ describe('widgets', () => {
       const data = { tokensPerSecond: 150 };
       const result = tokenSpeedWidget.render(data, ctx);
 
-      expect(result).toContain('⚡');
+      expect(result).toContain(ICON.zap);
       expect(result).toContain('150 tok/s');
     });
 
@@ -1988,7 +1989,7 @@ describe('widgets', () => {
       const data = { dailyTotal: 3.5 };
       const result = todayCostWidget.render(data, ctx);
 
-      expect(result).toContain('💰');
+      expect(result).toContain(ICON.moneyBag);
       expect(result).toContain('Today');
       expect(result).toContain('$3.50');
     });
@@ -2039,7 +2040,7 @@ describe('widgets', () => {
       const ctx = createContext();
       const data = { dailyTotal: 5, dailyBudget: 20, utilization: 0.25 };
       const result = budgetWidget.render(data, ctx);
-      expect(result).toContain('💵');
+      expect(result).toContain(ICON.banknote);
       expect(result).toContain('$5.00');
       expect(result).toContain('$20.00');
     });
@@ -2048,14 +2049,14 @@ describe('widgets', () => {
       const ctx = createContext();
       const data = { dailyTotal: 17, dailyBudget: 20, utilization: 0.85 };
       const result = budgetWidget.render(data, ctx);
-      expect(result).toContain('⚠️');
+      expect(result).toContain(ICON.warning);
     });
 
     it('should render danger icon for critical utilization', () => {
       const ctx = createContext();
       const data = { dailyTotal: 19.5, dailyBudget: 20, utilization: 0.975 };
       const result = budgetWidget.render(data, ctx);
-      expect(result).toContain('🚨');
+      expect(result).toContain(ICON.alarm);
     });
   });
 
@@ -2086,7 +2087,7 @@ describe('widgets', () => {
       const ctx = createContext();
       const data = { currentCost: 1.5, hourlyCost: 3.0 };
       const result = forecastWidget.render(data, ctx);
-      expect(result).toContain('📈');
+      expect(result).toContain(ICON.chartUp);
       expect(result).toContain('$1.50');
       expect(result).toContain('~$3.00/h');
     });
@@ -2123,7 +2124,7 @@ describe('widgets', () => {
       const ctx = createContext();
       const data = { score: 80, cacheHitRate: 70, outputRatio: 30 };
       const result = performanceWidget.render(data, ctx);
-      expect(result).toContain('🟢');
+      expect(result).toContain(ICON.greenCircle);
       expect(result).toContain('80%');
     });
 
@@ -2131,14 +2132,14 @@ describe('widgets', () => {
       const ctx = createContext();
       const data = { score: 50, cacheHitRate: 40, outputRatio: 20 };
       const result = performanceWidget.render(data, ctx);
-      expect(result).toContain('🟡');
+      expect(result).toContain(ICON.yellowCircle);
     });
 
     it('should render red badge for low score', () => {
       const ctx = createContext();
       const data = { score: 20, cacheHitRate: 10, outputRatio: 10 };
       const result = performanceWidget.render(data, ctx);
-      expect(result).toContain('🔴');
+      expect(result).toContain(ICON.redCircle);
     });
   });
 
@@ -2185,7 +2186,7 @@ describe('widgets', () => {
       const ctx = createContext();
       const data = { inputTokens: 5000, outputTokens: 2000, cacheWriteTokens: 1000, cacheReadTokens: 500 };
       const result = tokenBreakdownWidget.render(data, ctx);
-      expect(result).toContain('📊');
+      expect(result).toContain(ICON.chart);
       expect(result).toContain('In');
       expect(result).toContain('Out');
     });
@@ -2249,8 +2250,8 @@ describe('widgets', () => {
         mcpPercent: null, mcpResetAt: null, isError: true,
       };
       const result = zaiUsageWidget.render(data, ctx);
-      expect(result).toContain('🟠');
-      expect(result).toContain('⚠️');
+      expect(result).toContain(ICON.orangeCircle);
+      expect(result).toContain(ICON.warning);
     });
 
     it('should render usage percentages', () => {
@@ -2260,7 +2261,7 @@ describe('widgets', () => {
         mcpPercent: 20, mcpResetAt: null,
       };
       const result = zaiUsageWidget.render(data, ctx);
-      expect(result).toContain('🟠');
+      expect(result).toContain(ICON.orangeCircle);
       expect(result).toContain('45%');
       expect(result).toContain('20%');
     });
@@ -2295,7 +2296,7 @@ describe('widgets', () => {
       const ctx = createContext();
       const data = { text: 'Fix the login bug', timestamp: '2024-01-01T12:30:00Z' };
       const result = lastPromptWidget.render(data, ctx);
-      expect(result).toContain('💬');
+      expect(result).toContain(ICON.speech);
       expect(result).toContain('Fix the login bug');
     });
 
@@ -2360,7 +2361,7 @@ describe('widgets', () => {
       const ctx = createContext();
       const data = { name: '/foo:bar', startTime: 0 };
       const result = slashCommandWidget.render(data, ctx);
-      expect(result).toContain('🎯');
+      expect(result).toContain(ICON.target);
       expect(result).toContain('/foo:bar');
     });
 
@@ -2399,21 +2400,21 @@ describe('widgets', () => {
       const ctx = createContext();
       const data = { agentName: 'my-coder', agentType: 'code-explorer' };
       const result = agentModeWidget.render(data, ctx);
-      expect(result).toContain('👤 my-coder');
-      expect(result).toContain('🤖 code-explorer');
+      expect(result).toContain(`${ICON.person} my-coder`);
+      expect(result).toContain(`${ICON.robot} code-explorer`);
       expect(result).toContain('·');
     });
 
     it('should render only name when type is absent', () => {
       const ctx = createContext();
       const result = agentModeWidget.render({ agentName: 'solo' }, ctx);
-      expect(result).toBe('👤 solo');
+      expect(result).toBe(`${ICON.person} solo`);
     });
 
     it('should render only type when name is absent', () => {
       const ctx = createContext();
       const result = agentModeWidget.render({ agentType: 'code-explorer' }, ctx);
-      expect(result).toBe('🤖 code-explorer');
+      expect(result).toBe(`${ICON.robot} code-explorer`);
     });
 
     it('should return null when agent.name trims to empty string', async () => {

@@ -8,6 +8,7 @@
 import type { Widget } from './base.js';
 import type { WidgetContext, TokenSpeedData } from '../types.js';
 import { colorize, getTheme } from '../utils/colors.js';
+import { ICON } from '../utils/emoji.js';
 
 export const tokenSpeedWidget: Widget<TokenSpeedData> = {
   id: 'tokenSpeed',
@@ -27,6 +28,6 @@ export const tokenSpeedWidget: Widget<TokenSpeedData> = {
   },
 
   render(data: TokenSpeedData, _ctx: WidgetContext): string {
-    return colorize(`⚡ ${Math.round(data.tokensPerSecond)} tok/s`, getTheme().accent);
+    return colorize(`${ICON.zap} ${Math.round(data.tokensPerSecond)} tok/s`, getTheme().accent);
   },
 };

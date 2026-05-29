@@ -7,6 +7,7 @@
 import type { Widget } from './base.js';
 import type { WidgetContext, DepletionTimeData } from '../types.js';
 import { colorize, getTheme } from '../utils/colors.js';
+import { ICON } from '../utils/emoji.js';
 import { formatDuration } from '../utils/formatters.js';
 import { getSessionElapsedMinutes } from '../utils/session.js';
 
@@ -57,6 +58,6 @@ export const depletionTimeWidget: Widget<DepletionTimeData> = {
   render(data: DepletionTimeData, ctx: WidgetContext): string {
     const { translations: t } = ctx;
     const duration = formatDuration(data.minutesToLimit * 60 * 1000, t.time);
-    return colorize(`⏳ ~${duration} ${t.widgets.toLimit} ${data.limitType}`, getTheme().warning);
+    return colorize(`${ICON.hourglass} ~${duration} ${t.widgets.toLimit} ${data.limitType}`, getTheme().warning);
   },
 };

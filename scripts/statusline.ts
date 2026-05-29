@@ -15,6 +15,7 @@ import { homedir } from 'os';
 import type { StdinInput, Config, WidgetContext, UsageLimits } from './types.js';
 import { DEFAULT_CONFIG, parsePreset } from './types.js';
 import { COLORS, colorize, setTheme, setSeparatorStyle } from './utils/colors.js';
+import { ICON } from './utils/emoji.js';
 import { fetchUsageLimits } from './utils/api-client.js';
 import { getTranslations } from './utils/i18n.js';
 import { formatOutput } from './widgets/index.js';
@@ -127,7 +128,7 @@ async function main(): Promise<void> {
   // Read stdin
   const stdin = await readStdin();
   if (!stdin) {
-    console.log(colorize('⚠️', COLORS.yellow));
+    console.log(colorize(ICON.warning, COLORS.yellow));
     return;
   }
 
@@ -162,5 +163,5 @@ async function main(): Promise<void> {
 
 // Run
 main().catch(() => {
-  console.log(colorize('⚠️', COLORS.yellow));
+  console.log(colorize(ICON.warning, COLORS.yellow));
 });

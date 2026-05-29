@@ -9,6 +9,7 @@
 import type { Widget } from './base.js';
 import type { WidgetContext, TagStatusData } from '../types.js';
 import { colorize, getTheme } from '../utils/colors.js';
+import { ICON } from '../utils/emoji.js';
 import { execGit } from '../utils/git.js';
 
 const TAG_CACHE_TTL_MS = 30_000;
@@ -74,7 +75,7 @@ export const tagStatusWidget: Widget<TagStatusData> = {
 
   render(data: TagStatusData, _ctx: WidgetContext): string {
     const theme = getTheme();
-    const icon = colorize('🏷', theme.info);
+    const icon = colorize(ICON.label, theme.info);
     const parts = data.tags.map(({ name, count }) => {
       const nameColored = colorize(name, theme.branch);
       if (count === 0) return nameColored;

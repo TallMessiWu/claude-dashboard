@@ -7,6 +7,7 @@
 import type { Widget } from './base.js';
 import type { WidgetContext, CacheHitData } from '../types.js';
 import { getColorForPercent, colorize } from '../utils/colors.js';
+import { ICON } from '../utils/emoji.js';
 
 export const cacheHitWidget: Widget<CacheHitData> = {
   id: 'cacheHit',
@@ -40,6 +41,6 @@ export const cacheHitWidget: Widget<CacheHitData> = {
     // Higher cache hit rate is better (green), lower is worse (yellow/red)
     // Invert the color logic: 100% = green, 0% = red
     const color = getColorForPercent(100 - data.hitPercentage);
-    return `📦 ${colorize(`${data.hitPercentage}%`, color)}`;
+    return `${ICON.package} ${colorize(`${data.hitPercentage}%`, color)}`;
   },
 };

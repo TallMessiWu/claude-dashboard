@@ -6,6 +6,7 @@
 
 import type { Widget } from './base.js';
 import type { WidgetContext, BurnRateData } from '../types.js';
+import { ICON } from '../utils/emoji.js';
 import { formatTokens } from '../utils/formatters.js';
 import { getSessionElapsedMinutes } from '../utils/session.js';
 import { debugLog } from '../utils/debug.js';
@@ -53,6 +54,6 @@ export const burnRateWidget: Widget<BurnRateData> = {
   },
 
   render(data: BurnRateData, _ctx: WidgetContext): string {
-    return `🔥 ${formatTokens(Math.round(data.tokensPerMinute))}/min`;
+    return `${ICON.fire} ${formatTokens(Math.round(data.tokensPerMinute))}/min`;
   },
 };

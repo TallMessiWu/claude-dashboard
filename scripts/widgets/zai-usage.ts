@@ -8,6 +8,7 @@
 import type { Widget } from './base.js';
 import type { WidgetContext, ZaiUsageData } from '../types.js';
 import { getColorForPercent, colorize, getTheme } from '../utils/colors.js';
+import { ICON } from '../utils/emoji.js';
 import { formatTimeRemaining } from '../utils/formatters.js';
 import { isZaiInstalled, fetchZaiUsage } from '../utils/zai-api-client.js';
 import { debugLog } from '../utils/debug.js';
@@ -62,10 +63,10 @@ export const zaiUsageWidget: Widget<ZaiUsageData> = {
     const theme = getTheme();
     const parts: string[] = [];
 
-    parts.push(`🟠 ${data.model}`);
+    parts.push(`${ICON.orangeCircle} ${data.model}`);
 
     if (data.isError) {
-      parts.push(colorize('⚠️', theme.warning));
+      parts.push(colorize(ICON.warning, theme.warning));
     } else {
       // 5-hour token usage
       if (data.tokensPercent !== null) {

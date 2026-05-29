@@ -8,6 +8,7 @@
 import type { Widget } from './base.js';
 import type { WidgetContext, SessionIdData } from '../types.js';
 import { colorize, getTheme } from '../utils/colors.js';
+import { ICON } from '../utils/emoji.js';
 
 async function getSessionIdData(ctx: WidgetContext): Promise<SessionIdData | null> {
   const sessionId = ctx.stdin.session_id;
@@ -25,7 +26,7 @@ export const sessionIdWidget: Widget<SessionIdData> = {
   getData: getSessionIdData,
 
   render(data: SessionIdData): string {
-    return colorize(`\u{1F511} ${data.shortId}`, getTheme().secondary);
+    return colorize(`${ICON.key} ${data.shortId}`, getTheme().secondary);
   },
 };
 
@@ -35,6 +36,6 @@ export const sessionIdFullWidget: Widget<SessionIdData> = {
   getData: getSessionIdData,
 
   render(data: SessionIdData): string {
-    return colorize(`\u{1F511} ${data.sessionId}`, getTheme().secondary);
+    return colorize(`${ICON.key} ${data.sessionId}`, getTheme().secondary);
   },
 };

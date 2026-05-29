@@ -8,6 +8,7 @@
 import type { Widget } from './base.js';
 import type { WidgetContext, TodayCostData } from '../types.js';
 import { colorize, getTheme } from '../utils/colors.js';
+import { ICON } from '../utils/emoji.js';
 import { formatCost } from '../utils/formatters.js';
 import { recordCostAndGetDaily } from '../utils/budget.js';
 
@@ -27,6 +28,6 @@ export const todayCostWidget: Widget<TodayCostData> = {
 
   render(data: TodayCostData, ctx: WidgetContext): string {
     const { translations: t } = ctx;
-    return colorize(`💰 ${t.widgets.todayCost}: ${formatCost(data.dailyTotal)}`, getTheme().secondary);
+    return colorize(`${ICON.moneyBag} ${t.widgets.todayCost}: ${formatCost(data.dailyTotal)}`, getTheme().secondary);
   },
 };

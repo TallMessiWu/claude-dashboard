@@ -9,6 +9,7 @@
 import type { Widget } from './base.js';
 import type { WidgetContext, GeminiUsageData, GeminiUsageAllData } from '../types.js';
 import { getColorForPercent, colorize, getTheme } from '../utils/colors.js';
+import { ICON } from '../utils/emoji.js';
 import { isGeminiInstalled, fetchGeminiUsage } from '../utils/gemini-client.js';
 import { formatTimeRemaining } from '../utils/formatters.js';
 import { debugLog } from '../utils/debug.js';
@@ -48,7 +49,7 @@ export const geminiUsageWidget: Widget<GeminiUsageData> = {
     const limits = await fetchGeminiUsage(ctx.config.cache.ttlSeconds);
     debugLog('gemini', 'fetchGeminiUsage result:', limits);
     if (!limits) {
-      // Return error state instead of null to show ⚠️ indicator
+      // Return error state instead of null to show warning indicator
       return {
         model: 'gemini',
         usedPercent: null,
@@ -68,10 +69,10 @@ export const geminiUsageWidget: Widget<GeminiUsageData> = {
     const theme = getTheme();
     const parts: string[] = [];
 
-    parts.push(`${colorize('💎', theme.info)} ${data.model}`);
+    parts.push(`${colorize(ICON.gem, theme.info)} ${data.model}`);
 
     if (data.isError) {
-      parts.push(colorize('⚠️', theme.warning));
+      parts.push(colorize(ICON.warning, theme.warning));
     } else if (data.usedPercent !== null) {
       parts.push(formatUsage(data.usedPercent, data.resetAt, ctx));
     }
@@ -116,11 +117,11 @@ export const geminiUsageAllWidget: Widget<GeminiUsageAllData> = {
     const theme = getTheme();
 
     if (data.isError) {
-      return `${colorize('💎', theme.info)} Gemini ${colorize('⚠️', theme.warning)}`;
+      return `${colorize(ICON.gem, theme.info)} Gemini ${colorize(ICON.warning, theme.warning)}`;
     }
 
     if (data.buckets.length === 0) {
-      return `${colorize('💎', theme.info)} Gemini ${colorize('--', theme.secondary)}`;
+      return `${colorize(ICON.gem, theme.info)} Gemini ${colorize('--', theme.secondary)}`;
     }
 
     const parts = data.buckets.map((bucket) => {
@@ -131,6 +132,6 @@ export const geminiUsageAllWidget: Widget<GeminiUsageAllData> = {
       return `${colorize(modelShort, theme.secondary)}: ${colorize('--', theme.secondary)}`;
     });
 
-    return `${colorize('💎', theme.info)} ${parts.join(' │ ')}`;
+    return `${colorize(ICON.gem, theme.info)} ${parts.join(' │ ')}`;
   },
 };

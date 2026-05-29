@@ -13,6 +13,7 @@
 
 import type { Widget } from './base.js';
 import type { WidgetContext, AgentModeData } from '../types.js';
+import { ICON } from '../utils/emoji.js';
 
 export const agentModeWidget: Widget<AgentModeData> = {
   id: 'agentMode',
@@ -30,8 +31,8 @@ export const agentModeWidget: Widget<AgentModeData> = {
 
   render(data: AgentModeData): string {
     const parts: string[] = [];
-    if (data.agentName) parts.push(`👤 ${data.agentName}`);
-    if (data.agentType) parts.push(`🤖 ${data.agentType}`);
+    if (data.agentName) parts.push(`${ICON.person} ${data.agentName}`);
+    if (data.agentType) parts.push(`${ICON.robot} ${data.agentType}`);
     return parts.join(' · ');
   },
 };
