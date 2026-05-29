@@ -49,7 +49,7 @@ export const codexUsageWidget: Widget<CodexUsageData> = {
     const limits = await fetchCodexUsage(ctx.config.cache.ttlSeconds);
     debugLog('codex', 'fetchCodexUsage result:', limits);
     if (!limits) {
-      // Return error state instead of null to show ⚠️ indicator
+      // Return error state instead of null to show warning indicator
       return {
         model: 'codex',
         planType: '',

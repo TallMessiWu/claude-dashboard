@@ -49,7 +49,7 @@ export const geminiUsageWidget: Widget<GeminiUsageData> = {
     const limits = await fetchGeminiUsage(ctx.config.cache.ttlSeconds);
     debugLog('gemini', 'fetchGeminiUsage result:', limits);
     if (!limits) {
-      // Return error state instead of null to show ⚠️ indicator
+      // Return error state instead of null to show warning indicator
       return {
         model: 'gemini',
         usedPercent: null,

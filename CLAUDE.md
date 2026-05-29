@@ -108,6 +108,8 @@ claude-dashboard/
 | API 클라이언트 | `scripts/utils/api-client.ts` |
 | Cross-process file cache | `scripts/utils/file-cache.ts` |
 | 포매팅 유틸리티 | `scripts/utils/formatters.ts` |
+| 이모지 아이콘 (단일 출처) | `scripts/utils/emoji.ts` |
+| Registry invariant 테스트 | `scripts/__tests__/emoji.test.ts` |
 
 ## Widget Architecture
 
