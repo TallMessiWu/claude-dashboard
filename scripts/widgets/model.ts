@@ -17,6 +17,7 @@ import { RESET, getTheme } from '../utils/colors.js';
 import { ICON } from '../utils/emoji.js';
 import { shortenModelName } from '../utils/formatters.js';
 import { isZaiProvider } from '../utils/provider.js';
+import { detectModelCategory } from '../utils/pricing.js';
 
 const EFFORT_LEVELS = new Set<string>(['xhigh', 'high', 'medium', 'low']);
 
@@ -97,9 +98,12 @@ export const modelWidget: Widget<ModelData> = {
 
   render(data: ModelData): string {
     const shortName = shortenModelName(data.displayName);
-    const icon = isZaiProvider() ? ICON.orangeCircle : '◆';
+    const category = detectModelCategory(data.id);
+    const icon = isZaiProvider() ? ICON.orangeCircle
+      : category === 'deepseek' ? ICON.blueDiamond
+      : '◆';
 
-    // Haiku excluded from effort badge
+    // Show effort suffix for Opus and Sonnet: (H), (M), (L). Haiku + DeepSeek excluded.
     const supportsEffort = shortName === 'Opus' || shortName === 'Sonnet';
     const effortSuffix = supportsEffort
       ? `(${data.effortLevel[0].toUpperCase()})`

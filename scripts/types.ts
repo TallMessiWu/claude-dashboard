@@ -126,6 +126,7 @@ export type WidgetId =
   | 'geminiUsageAll'
   | 'zaiUsage'
   | 'tokenBreakdown'
+  | 'sessionTokens'
   | 'performance'
   | 'forecast'
   | 'budget'
@@ -421,6 +422,8 @@ export interface ContextData {
 
 export interface CostData {
   totalCostUsd: number;
+  /** Currency symbol for display (e.g. "$", "¥") */
+  currency?: string;
 }
 
 export interface RateLimitData {
@@ -644,6 +647,8 @@ export interface ForecastData {
   currentCost: number;
   /** Estimated hourly cost extrapolated from session rate */
   hourlyCost: number;
+  /** Currency symbol for display (e.g. "$", "¥") */
+  currency?: string;
 }
 
 /**

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 // scripts/statusline.ts
-import { readFile as readFile9, stat as stat10 } from "fs/promises";
-import { join as join6 } from "path";
-import { homedir as homedir6 } from "os";
+import { readFile as readFile10, stat as stat10 } from "fs/promises";
+import { join as join7 } from "path";
+import { homedir as homedir7 } from "os";
 
 // scripts/types.ts
 var DISPLAY_PRESETS = {
@@ -1019,8 +1019,8 @@ function formatTokens(tokens) {
   }
   return String(tokens);
 }
-function formatCost(cost) {
-  return `$${cost.toFixed(2)}`;
+function formatCost(cost, currency = "$") {
+  return `${currency}${cost.toFixed(2)}`;
 }
 function formatTimeRemaining(resetAt, t) {
   const reset = typeof resetAt === "string" ? new Date(resetAt) : resetAt;
@@ -1049,6 +1049,17 @@ function shortenModelName(displayName) {
     return "Sonnet";
   if (lower.includes("haiku"))
     return "Haiku";
+  if (lower.includes("deepseek")) {
+    if (lower.includes("pro"))
+      return "DS Pro";
+    if (lower.includes("flash"))
+      return "DS Flash";
+    if (lower.includes("chat"))
+      return "DS Flash";
+    if (lower.includes("reasoner"))
+      return "DS Flash";
+    return "DS Flash";
+  }
   const parts = displayName.split(/\s+/);
   if (parts.length > 1 && parts[0].toLowerCase() === "claude") {
     return parts[1];
@@ -1112,6 +1123,108 @@ function getZaiApiBaseUrl() {
   }
 }
 
+// scripts/utils/pricing.ts
+var MODEL_PRICING = {
+  // ── Anthropic Claude (USD) ──
+  opus: {
+    input: 15,
+    cacheWrite: 18.75,
+    cacheRead: 1.5,
+    output: 75,
+    currency: "$"
+  },
+  sonnet: {
+    input: 3,
+    cacheWrite: 3.75,
+    cacheRead: 0.3,
+    output: 15,
+    currency: "$"
+  },
+  haiku: {
+    input: 0.8,
+    cacheWrite: 1,
+    cacheRead: 0.08,
+    output: 4,
+    currency: "$"
+  },
+  // ── DeepSeek (CNY / 人民币) ──
+  // V4 Pro: 2.5折 (75% off) 有效期至 2026/05/31 15:59 UTC
+  "deepseek-v4-pro": {
+    input: 3,
+    cacheWrite: 3,
+    cacheRead: 0.025,
+    output: 6,
+    currency: "\xA5"
+  },
+  "deepseek-v4-flash": {
+    input: 1,
+    cacheWrite: 1,
+    cacheRead: 0.02,
+    output: 2,
+    currency: "\xA5"
+  },
+  // Aliases for deprecated model names (map to v4-flash)
+  "deepseek-chat": {
+    input: 1,
+    cacheWrite: 1,
+    cacheRead: 0.02,
+    output: 2,
+    currency: "\xA5"
+  },
+  "deepseek-reasoner": {
+    input: 1,
+    cacheWrite: 1,
+    cacheRead: 0.02,
+    output: 2,
+    currency: "\xA5"
+  },
+  // Generic DeepSeek fallback — matches any "deepseek*" not caught above
+  deepseek: {
+    input: 1,
+    cacheWrite: 1,
+    cacheRead: 0.02,
+    output: 2,
+    currency: "\xA5"
+  }
+};
+function detectModelCategory(modelId) {
+  const lower = modelId.toLowerCase();
+  if (lower.includes("claude") || lower.includes("opus") || lower.includes("sonnet") || lower.includes("haiku")) {
+    return "anthropic";
+  }
+  if (lower.includes("deepseek")) {
+    return "deepseek";
+  }
+  return "unknown";
+}
+function getPricing(modelId) {
+  const lower = modelId.toLowerCase();
+  const keys = Object.keys(MODEL_PRICING).sort((a, b) => b.length - a.length);
+  for (const key of keys) {
+    if (lower.includes(key)) {
+      return MODEL_PRICING[key];
+    }
+  }
+  return null;
+}
+function estimateCost(modelId, inputTokens, outputTokens, cacheWriteTokens, cacheReadTokens) {
+  const pricing = getPricing(modelId);
+  if (!pricing)
+    return null;
+  const inputCost = inputTokens / 1e6 * pricing.input;
+  const outputCost = outputTokens / 1e6 * pricing.output;
+  const cacheWriteCost = cacheWriteTokens / 1e6 * pricing.cacheWrite;
+  const cacheReadCost = cacheReadTokens / 1e6 * pricing.cacheRead;
+  return {
+    inputCost,
+    outputCost,
+    cacheWriteCost,
+    cacheReadCost,
+    totalCost: inputCost + outputCost + cacheWriteCost + cacheReadCost,
+    currency: pricing.currency
+  };
+}
+
 // scripts/widgets/model.ts
 var EFFORT_LEVELS = /* @__PURE__ */ new Set(["xhigh", "high", "medium", "low"]);
 function isEffortLevel(value) {
@@ -1170,7 +1283,8 @@ var modelWidget = {
   },
   render(data) {
     const shortName = shortenModelName(data.displayName);
-    const icon = isZaiProvider() ? ICON.orangeCircle : "\u25C6";
+    const category = detectModelCategory(data.id);
+    const icon = isZaiProvider() ? ICON.orangeCircle : category === "deepseek" ? ICON.blueDiamond : "\u25C6";
     const supportsEffort = shortName === "Opus" || shortName === "Sonnet";
     const effortSuffix = supportsEffort ? `(${data.effortLevel[0].toUpperCase()})` : "";
     const fastIndicator = shortName === "Opus" && data.fastMode ? " \u21AF" : "";
@@ -1264,13 +1378,26 @@ var costWidget = {
   id: "cost",
   name: "Cost",
   async getData(ctx) {
-    const { cost } = ctx.stdin;
-    return {
-      totalCostUsd: cost?.total_cost_usd ?? 0
-    };
+    const { cost, model, context_window } = ctx.stdin;
+    const category = model?.id ? detectModelCategory(model.id) : "unknown";
+    if (category === "anthropic") {
+      const serverCost = cost?.total_cost_usd ?? 0;
+      if (serverCost > 0) {
+        return { totalCostUsd: serverCost, currency: "$" };
+      }
+    }
+    const totalInput = context_window?.total_input_tokens ?? 0;
+    const totalOutput = context_window?.total_output_tokens ?? 0;
+    if (totalInput + totalOutput > 0 && model?.id) {
+      const estimated = estimateCost(model.id, totalInput, totalOutput, 0, 0);
+      if (estimated && estimated.totalCost > 0) {
+        return { totalCostUsd: estimated.totalCost, currency: estimated.currency };
+      }
+    }
+    return null;
   },
   render(data) {
-    return colorize(formatCost(data.totalCostUsd), getTheme().accent);
+    return colorize(formatCost(data.totalCostUsd, data.currency ?? "$"), getTheme().accent);
   }
 };
 
@@ -1328,8 +1455,6 @@ var rateLimit7dSonnetWidget = {
   name: "7d Sonnet Rate Limit",
   async getData(ctx) {
     if (shouldHideAnthropicLimits())
-      return null;
-    if (ctx.config.plan !== "max")
       return null;
     return getLimitData(ctx.rateLimits, "seven_day_sonnet");
   },
@@ -3334,6 +3459,66 @@ var tokenBreakdownWidget = {
   }
 };
 
+// scripts/widgets/session-tokens.ts
+import { readFile as readFile8, writeFile as writeFile4, mkdir as mkdir4 } from "fs/promises";
+import { join as join5 } from "path";
+import { homedir as homedir4 } from "os";
+var DATA_DIR = join5(homedir4(), ".cache", "claude-dashboard", "session-data");
+async function loadState(sessionId) {
+  try {
+    const raw = await readFile8(join5(DATA_DIR, `${sessionId}.json`), "utf-8");
+    return JSON.parse(raw);
+  } catch {
+    return { lastTotalInputTokens: 0, cumulativeW: 0, cumulativeR: 0 };
+  }
+}
+async function saveState(sessionId, state) {
+  try {
+    await mkdir4(DATA_DIR, { recursive: true });
+    await writeFile4(join5(DATA_DIR, `${sessionId}.json`), JSON.stringify(state));
+  } catch {
+  }
+}
+var sessionTokensWidget = {
+  id: "sessionTokens",
+  name: "Session Tokens",
+  async getData(ctx) {
+    const cw = ctx.stdin.context_window;
+    const usage = cw?.current_usage;
+    const totalInput = cw?.total_input_tokens ?? 0;
+    const totalOutput = cw?.total_output_tokens ?? 0;
+    const sessionId = ctx.stdin.session_id || "default";
+    if (totalInput + totalOutput === 0)
+      return null;
+    const state = await loadState(sessionId);
+    if (usage && totalInput > state.lastTotalInputTokens) {
+      state.cumulativeW += usage.cache_creation_input_tokens;
+      state.cumulativeR += usage.cache_read_input_tokens;
+      state.lastTotalInputTokens = totalInput;
+      await saveState(sessionId, state);
+    }
+    return {
+      inputTokens: totalInput,
+      outputTokens: totalOutput,
+      cacheWriteTokens: state.cumulativeW,
+      cacheReadTokens: state.cumulativeR
+    };
+  },
+  render(data, _ctx) {
+    const theme = getTheme();
+    const parts = [];
+    if (data.inputTokens > 0)
+      parts.push(`${colorize("In", theme.info)} ${formatTokens(data.inputTokens)}`);
+    if (data.outputTokens > 0)
+      parts.push(`${colorize("Out", theme.accent)} ${formatTokens(data.outputTokens)}`);
+    if (data.cacheWriteTokens > 0)
+      parts.push(`${colorize("W", theme.warning)} ${formatTokens(data.cacheWriteTokens)}`);
+    if (data.cacheReadTokens > 0)
+      parts.push(`${colorize("R", theme.safe)} ${formatTokens(data.cacheReadTokens)}`);
+    return `\u{1F4CA} ${parts.join(colorize(" \xB7 ", theme.secondary))}`;
+  }
+};
+
 // scripts/widgets/performance.ts
 var GOOD_THRESHOLD = 70;
 var OK_THRESHOLD = 40;
@@ -3383,7 +3568,29 @@ var forecastWidget = {
   id: "forecast",
   name: "Cost Forecast",
   async getData(ctx) {
-    const totalCost = ctx.stdin.cost?.total_cost_usd ?? 0;
+    const { cost, model, context_window } = ctx.stdin;
+    const usage = context_window?.current_usage;
+    let totalCost;
+    let currency;
+    if (usage && model?.id) {
+      const estimated = estimateCost(
+        model.id,
+        usage.input_tokens,
+        usage.output_tokens,
+        usage.cache_creation_input_tokens,
+        usage.cache_read_input_tokens
+      );
+      if (estimated && estimated.totalCost > 0) {
+        totalCost = estimated.totalCost;
+        currency = estimated.currency;
+      } else {
+        totalCost = cost?.total_cost_usd ?? 0;
+        currency = "$";
+      }
+    } else {
+      totalCost = cost?.total_cost_usd ?? 0;
+      currency = "$";
+    }
     if (totalCost <= 0)
       return null;
     const elapsedMinutes = await getSessionElapsedMinutes(ctx, 1);
@@ -3395,11 +3602,13 @@ var forecastWidget = {
       return null;
     return {
       currentCost: totalCost,
-      hourlyCost
+      hourlyCost,
+      currency
     };
   },
   render(data, _ctx) {
     const theme = getTheme();
+    const cur = data.currency ?? "$";
     let hourlyColor;
     if (data.hourlyCost > 10) {
       hourlyColor = theme.danger;
@@ -3408,16 +3617,16 @@ var forecastWidget = {
     } else {
       hourlyColor = theme.safe;
     }
-    return `${ICON.chartUp} ${colorize(formatCost(data.currentCost), theme.accent)} \u2192 ${colorize(`~${formatCost(data.hourlyCost)}/h`, hourlyColor)}`;
+    return `${ICON.chartUp} ${colorize(formatCost(data.currentCost, cur), theme.accent)} \u2192 ${colorize(`~${formatCost(data.hourlyCost, cur)}/h`, hourlyColor)}`;
   }
 };
 
 // scripts/utils/budget.ts
-import { readFile as readFile8, mkdir as mkdir4, writeFile as writeFile4 } from "fs/promises";
-import { join as join5 } from "path";
-import { homedir as homedir4 } from "os";
-var BUDGET_DIR = join5(homedir4(), ".cache", "claude-dashboard");
-var BUDGET_FILE = join5(BUDGET_DIR, "budget.json");
+import { readFile as readFile9, mkdir as mkdir5, writeFile as writeFile5 } from "fs/promises";
+import { join as join6 } from "path";
+import { homedir as homedir5 } from "os";
+var BUDGET_DIR = join6(homedir5(), ".cache", "claude-dashboard");
+var BUDGET_FILE = join6(BUDGET_DIR, "budget.json");
 var budgetCache = null;
 var dirEnsured = false;
 var pendingRecordDaily = null;
@@ -3431,7 +3640,7 @@ async function loadBudgetState() {
   }
   const fresh = { date: today, dailyTotal: 0, sessions: {} };
   try {
-    const content = await readFile8(BUDGET_FILE, "utf-8");
+    const content = await readFile9(BUDGET_FILE, "utf-8");
     const state = JSON.parse(content);
     if (state.date !== today || !Number.isFinite(state.dailyTotal) || !state.sessions || typeof state.sessions !== "object") {
       return fresh;
@@ -3445,10 +3654,10 @@ async function loadBudgetState() {
 async function saveBudgetState(state) {
   try {
     if (!dirEnsured) {
-      await mkdir4(BUDGET_DIR, { recursive: true });
+      await mkdir5(BUDGET_DIR, { recursive: true });
       dirEnsured = true;
     }
-    await writeFile4(BUDGET_FILE, JSON.stringify(state), "utf-8");
+    await writeFile5(BUDGET_FILE, JSON.stringify(state), "utf-8");
     budgetCache = state;
   } catch (error) {
     debugLog("budget", "Failed to save budget state", error);
@@ -3646,8 +3855,8 @@ var todayCostWidget = {
 
 // scripts/utils/history-parser.ts
 import { open as open3, stat as stat9 } from "fs/promises";
-import { homedir as homedir5 } from "os";
-var HISTORY_PATH = `${homedir5()}/.claude/history.jsonl`;
+import { homedir as homedir6 } from "os";
+var HISTORY_PATH = `${homedir6()}/.claude/history.jsonl`;
 var CHUNK = 16 * 1024;
 function resolvePastedText(display, pastedContents) {
   if (!pastedContents)
@@ -3951,6 +4160,7 @@ var widgetRegistry = /* @__PURE__ */ new Map([
   ["sessionId", sessionIdWidget],
   ["sessionIdFull", sessionIdFullWidget],
   ["tokenBreakdown", tokenBreakdownWidget],
+  ["sessionTokens", sessionTokensWidget],
   ["performance", performanceWidget],
   ["forecast", forecastWidget],
   ["budget", budgetWidget],
@@ -4016,7 +4226,7 @@ async function formatOutput(ctx) {
 }
 
 // scripts/statusline.ts
-var CONFIG_PATH = join6(homedir6(), ".claude", "claude-dashboard.local.json");
+var CONFIG_PATH = join7(homedir7(), ".claude", "claude-dashboard.local.json");
 var configCache = null;
 async function readStdin() {
   try {
@@ -4037,7 +4247,7 @@ async function loadConfig() {
     if (configCache?.mtime === mtime) {
       return configCache.config;
     }
-    const content = await readFile9(CONFIG_PATH, "utf-8");
+    const content = await readFile10(CONFIG_PATH, "utf-8");
     const userConfig = JSON.parse(content);
     const config = {
       ...DEFAULT_CONFIG,

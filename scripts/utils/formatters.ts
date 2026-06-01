@@ -24,8 +24,8 @@ export function formatTokens(tokens: number): string {
  * Format cost in USD
  * Examples: 0.5 -> "$0.50", 1.234 -> "$1.23"
  */
-export function formatCost(cost: number): string {
-  return `$${cost.toFixed(2)}`;
+export function formatCost(cost: number, currency: string = '$'): string {
+  return `${currency}${cost.toFixed(2)}`;
 }
 
 /**
@@ -61,9 +61,19 @@ export function formatTimeRemaining(resetAt: string | Date, t: Translations): st
 export function shortenModelName(displayName: string): string {
   const lower = displayName.toLowerCase();
 
+  // Anthropic models
   if (lower.includes('opus')) return 'Opus';
   if (lower.includes('sonnet')) return 'Sonnet';
   if (lower.includes('haiku')) return 'Haiku';
+
+  // DeepSeek models
+  if (lower.includes('deepseek')) {
+    if (lower.includes('pro')) return 'DS Pro';
+    if (lower.includes('flash')) return 'DS Flash';
+    if (lower.includes('chat')) return 'DS Flash';
+    if (lower.includes('reasoner')) return 'DS Flash';
+    return 'DS Flash';
+  }
 
   // Fallback: return first word after "Claude" or the original
   const parts = displayName.split(/\s+/);

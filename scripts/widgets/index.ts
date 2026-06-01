@@ -39,6 +39,7 @@ import { geminiUsageWidget, geminiUsageAllWidget } from './gemini-usage.js';
 import { zaiUsageWidget } from './zai-usage.js';
 import { sessionIdWidget, sessionIdFullWidget } from './session-id.js';
 import { tokenBreakdownWidget } from './token-breakdown.js';
+import { sessionTokensWidget } from './session-tokens.js';
 import { performanceWidget } from './performance.js';
 import { forecastWidget } from './forecast.js';
 import { budgetWidget } from './budget.js';
@@ -85,6 +86,7 @@ const widgetRegistry = new Map<WidgetId, Widget>([
   ['sessionId', sessionIdWidget],
   ['sessionIdFull', sessionIdFullWidget],
   ['tokenBreakdown', tokenBreakdownWidget],
+  ['sessionTokens', sessionTokensWidget],
   ['performance', performanceWidget],
   ['forecast', forecastWidget],
   ['budget', budgetWidget],

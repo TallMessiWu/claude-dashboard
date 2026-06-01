@@ -85,7 +85,7 @@ export const rateLimit7dWidget: Widget<RateLimitData> = {
 };
 
 /**
- * 7-day Sonnet-only rate limit widget (Max plan only)
+ * 7-day Sonnet-only rate limit widget
  */
 export const rateLimit7dSonnetWidget: Widget<RateLimitData> = {
   id: 'rateLimit7dSonnet',
@@ -93,7 +93,6 @@ export const rateLimit7dSonnetWidget: Widget<RateLimitData> = {
 
   async getData(ctx: WidgetContext): Promise<RateLimitData | null> {
     if (shouldHideAnthropicLimits()) return null;
-    if (ctx.config.plan !== 'max') return null;
     return getLimitData(ctx.rateLimits, 'seven_day_sonnet');
   },
 

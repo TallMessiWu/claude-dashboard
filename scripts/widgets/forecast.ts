@@ -10,13 +10,39 @@ import { colorize, getTheme } from '../utils/colors.js';
 import { ICON } from '../utils/emoji.js';
 import { formatCost } from '../utils/formatters.js';
 import { getSessionElapsedMinutes } from '../utils/session.js';
+import { estimateCost } from '../utils/pricing.js';
 
 export const forecastWidget: Widget<ForecastData> = {
   id: 'forecast',
   name: 'Cost Forecast',
 
   async getData(ctx: WidgetContext): Promise<ForecastData | null> {
-    const totalCost = ctx.stdin.cost?.total_cost_usd ?? 0;
+    const { cost, model, context_window } = ctx.stdin;
+    const usage = context_window?.current_usage;
+
+    // Prefer model-based estimation when available
+    let totalCost: number;
+    let currency: string;
+    if (usage && model?.id) {
+      const estimated = estimateCost(
+        model.id,
+        usage.input_tokens,
+        usage.output_tokens,
+        usage.cache_creation_input_tokens,
+        usage.cache_read_input_tokens,
+      );
+      if (estimated && estimated.totalCost > 0) {
+        totalCost = estimated.totalCost;
+        currency = estimated.currency;
+      } else {
+        totalCost = cost?.total_cost_usd ?? 0;
+        currency = '$';
+      }
+    } else {
+      totalCost = cost?.total_cost_usd ?? 0;
+      currency = '$';
+    }
+
     if (totalCost <= 0) return null;
 
     const elapsedMinutes = await getSessionElapsedMinutes(ctx, 1);
@@ -30,11 +56,13 @@ export const forecastWidget: Widget<ForecastData> = {
     return {
       currentCost: totalCost,
       hourlyCost,
+      currency,
     };
   },
 
   render(data: ForecastData, _ctx: WidgetContext): string {
     const theme = getTheme();
+    const cur = data.currency ?? '$';
 
     let hourlyColor: string;
     if (data.hourlyCost > 10) {
@@ -45,6 +73,6 @@ export const forecastWidget: Widget<ForecastData> = {
       hourlyColor = theme.safe;
     }
 
-    return `${ICON.chartUp} ${colorize(formatCost(data.currentCost), theme.accent)} → ${colorize(`~${formatCost(data.hourlyCost)}/h`, hourlyColor)}`;
+    return `${ICON.chartUp} ${colorize(formatCost(data.currentCost, cur), theme.accent)} → ${colorize(`~${formatCost(data.hourlyCost, cur)}/h`, hourlyColor)}`;
   },
 };
