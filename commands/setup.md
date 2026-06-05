@@ -233,7 +233,7 @@ Add or update the statusLine configuration in `~/.claude/settings.json`:
 
 **Find the plugin path and update settings.json** (copy-paste one-liner):
 ```bash
-SLPATH="$(ls -d ~/.claude/plugins/cache/claude-dashboard/claude-dashboard/*/dist/index.js 2>/dev/null | sort -V | tail -1)" node -e 'const fs=require("fs"),os=require("os"),p=os.homedir()+"/.claude/settings.json";const s=fs.existsSync(p)?JSON.parse(fs.readFileSync(p,"utf8")):{};s.statusLine={type:"command",command:"node "+process.env.SLPATH};fs.writeFileSync(p,JSON.stringify(s,null,2));'
+SLPATH="$(ls -d ~/.claude/plugins/cache/claude-dashboard/claude-dashboard/*/dist/index.js 2>/dev/null | sort -V | tail -1)" node -e 'const fs=require("fs"),os=require("os"),p=os.homedir()+"/.claude/settings.json";const s=fs.existsSync(p)?JSON.parse(fs.readFileSync(p,"utf8")):{};s.statusLine={type:"command",command:process.execPath+" "+process.env.SLPATH};fs.writeFileSync(p,JSON.stringify(s,null,2));'
 ```
 
 This command:
